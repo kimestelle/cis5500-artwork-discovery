@@ -1,5 +1,5 @@
 CREATE TABLE HistoricalEvents (
-    EventId     INTEGER PRIMARY KEY,
+    EventId     INT PRIMARY KEY,
     Title        VARCHAR(255),
     Location     VARCHAR(255),
     StartDate   DATE,
@@ -8,31 +8,30 @@ CREATE TABLE HistoricalEvents (
 );
 
 CREATE TABLE Artist (
-    ArtistId   INTEGER PRIMARY KEY,
+    ArtistId   INT PRIMARY KEY,
     Name        VARCHAR(255) NOT NULL,
     Nationality VARCHAR(100),
-    BirthYear  INTEGER,
-    DeathYear  INTEGER
+    BirthYear  INT,
+    DeathYear  INT
 );
 
 CREATE TABLE Artwork (
-    ArtworkId   BIGINT PRIMARY KEY,
+    ArtworkId   INT PRIMARY KEY,
     Title        VARCHAR(255) NOT NULL,
     Medium       VARCHAR(255),
-    YearStart   INTEGER,
-    YearEnd     INTEGER,
+    YearStart   INT,
+    YearEnd     INT,
     Nationality  VARCHAR(100),
     ImageUrl    VARCHAR(500),
     Museum       VARCHAR(255),
     Description VARCHAR(500),
-    ArtistId    INTEGER,
-    CONSTRAINT fk_artwork_artist
-        FOREIGN KEY (ArtistId) REFERENCES Artist(ArtistId)
+    ArtistId    INT,
+    FOREIGN KEY (ArtistId) REFERENCES Artist(ArtistId)
 );
 
 CREATE TABLE Keyword (
-    KeywordId     SERIAL PRIMARY KEY,
-    Term          VARCHAR(50) NOT NULL UNIQUE,
+    KeywordId     INT PRIMARY KEY,
+    Term          VARCHAR(50) NOT NULL,
     WikipediaURL  VARCHAR(100)
 );
 
@@ -45,45 +44,33 @@ CREATE TABLE Museum (
 );
 
 CREATE TABLE FeaturedArtists (
-    MuseumId  INTEGER NOT NULL,
-    ArtistId  INTEGER NOT NULL,
+    MuseumId  INT NOT NULL,
+    ArtistId  INT NOT NULL,
     PRIMARY KEY (MuseumId, ArtistId),
-    CONSTRAINT fk_featured_museum
-        FOREIGN KEY (MuseumId) REFERENCES Museum(MuseumId),
-    CONSTRAINT fk_featured_artist
-        FOREIGN KEY (ArtistId) REFERENCES Artist(ArtistId)
+    FOREIGN KEY (MuseumId) REFERENCES Museum(MuseumId),
+    FOREIGN KEY (ArtistId) REFERENCES Artist(ArtistId)
 );
 
 CREATE TABLE ArtistKeywords (
-    ArtistId  INTEGER NOT NULL,
-    KeywordId INTEGER NOT NULL,
+    ArtistId  INT NOT NULL,
+    KeywordId INT NOT NULL,
     PRIMARY KEY (ArtistId, KeywordId),
-    CONSTRAINT fk_artistkeywords_artist
-        FOREIGN KEY (ArtistId) REFERENCES Artist(ArtistId),
-    CONSTRAINT fk_artistkeywords_keyword
-        FOREIGN KEY (KeywordId) REFERENCES Keyword(KeywordId)
+    FOREIGN KEY (ArtistId) REFERENCES Artist(ArtistId),
+    FOREIGN KEY (KeywordId) REFERENCES Keyword(KeywordId)
 );
 
 CREATE TABLE ArtworkKeywords (
     ArtworkId BIGINT NOT NULL,
-    KeywordId INTEGER NOT NULL,
+    KeywordId INT NOT NULL,
     PRIMARY KEY (ArtworkId, KeywordId),
-    CONSTRAINT fk_artworkkeywords_artwork
-        FOREIGN KEY (ArtworkId) REFERENCES Artwork(ArtworkId),
-    CONSTRAINT fk_artworkkeywords_keyword
-        FOREIGN KEY (KeywordId) REFERENCES Keyword(KeywordId)
+    FOREIGN KEY (ArtworkId) REFERENCES Artwork(ArtworkId),
+    FOREIGN KEY (KeywordId) REFERENCES Keyword(KeywordId)
 );
 
 CREATE TABLE HistoricalEventKeywords (
-    EventId   INTEGER NOT NULL,
-    KeywordId INTEGER NOT NULL,
+    EventId   INT NOT NULL,
+    KeywordId INT NOT NULL,
     PRIMARY KEY (EventId, KeywordId),
-    CONSTRAINT fk_eventkeywords_event
-        FOREIGN KEY (EventId) REFERENCES HistoricalEvents(EventId),
-    CONSTRAINT fk_eventkeywords_keyword
-        FOREIGN KEY (KeywordId) REFERENCES Keyword(KeywordId)
+    FOREIGN KEY (EventId) REFERENCES HistoricalEvents(EventId),
+    FOREIGN KEY (KeywordId) REFERENCES Keyword(KeywordId)
 );
-
-INSERT INTO Museum (Name, City, Country, Website) VALUES
-('The Metropolitan Museum of Art', 'New York', 'USA', 'https://www.metmuseum.org/'),
-('Museum of Modern Art', 'New York', 'USA', 'https://www.moma.org/');
