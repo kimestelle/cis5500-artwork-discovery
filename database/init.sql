@@ -83,3 +83,7 @@ CREATE TABLE HistoricalEventKeywords (
     CONSTRAINT fk_eventkeywords_keyword
         FOREIGN KEY (KeywordId) REFERENCES Keyword(KeywordId)
 );
+
+INSERT INTO Museum (Name, City, Country, Website) VALUES
+('The Metropolitan Museum of Art', 'New York', 'USA', 'https://www.metmuseum.org/'),
+('Museum of Modern Art', 'New York', 'USA', 'https://www.moma.org/');
