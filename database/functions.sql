@@ -9,4 +9,3 @@ FROM Artwork
 JOIN Artist ON Artwork.ArtistID = Artist.ArtistID
 JOIN HistoricalEvents ON Artist.Nationality = HistoricalEvents.Location
 ORDER BY Artist.Nationality, HistoricalEvents.StartDate;
-
