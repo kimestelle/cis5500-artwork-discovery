@@ -1,12 +1,14 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { CssBaseline, ThemeProvider } from '@mui/material'
-import { indigo, amber } from '@mui/material/colors'
-import { createTheme } from "@mui/material/styles";
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { CssBaseline, ThemeProvider } from '@mui/material';
+import { indigo, amber } from '@mui/material/colors';
+import { createTheme } from '@mui/material/styles';
 
 import NavBar from './components/NavBar';
 import HomePage from './pages/HomePage';
+import ArtworksPage from './pages/ArtworksPage';
 import AlbumsPage from './pages/AlbumsPage';
 import SongsPage from './pages/SongsPage';
+
 import AlbumInfoPage from './pages/AlbumInfoPage'
 import Artists from './pages/Artists'; 
 import HistoricalEvents from "./pages/HistoricalEvents";
@@ -14,10 +16,10 @@ import HistoricalEvents from "./pages/HistoricalEvents";
 // createTheme enables you to customize the look and feel of your app past the default
 // in this case, we only change the color scheme
 export const theme = createTheme({
-  palette: {
-    primary: indigo,
-    secondary: amber,
-  },
+	palette: {
+		primary: indigo,
+		secondary: amber,
+	},
 });
 
 // App is the root component of our application and as children contain all our pages
@@ -34,6 +36,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/albums" element={<AlbumsPage />} />
           <Route path="/album/:album_id" element={<AlbumInfoPage />} />
+          <Route path='/artworks' element={<ArtworksPage />} />
           <Route path="/songs" element={<SongsPage />} />
           <Route path="/artists" element={<Artists />} />
           <Route path="/historicalevents" element={<HistoricalEvents />} />
