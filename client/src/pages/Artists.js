@@ -6,6 +6,13 @@ import {
 	DialogContent,
 	DialogTitle,
 	Button,
+	Table,
+	TableBody,
+	TableCell,
+	TableContainer,
+	TableHead,
+	TableRow,
+	Paper,
 } from '@mui/material';
 // import CloseIcon from '@mui/icons-material/Close';
 import backgroundImage from '../assets/background.jpg';
@@ -101,14 +108,81 @@ export default function Artists() {
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
 			setResults((prev) => ({ ...prev, [id]: data }));
-			setModalContent(JSON.stringify(data, null, 2)); // nicely formatted JSON
-			setOpenModal(true); // open modal popup
+			setModalContent({ type: id, data }); // store both type and data
+			setOpenModal(true);
 		} catch (err) {
 			console.error(err);
 			setResults((prev) => ({ ...prev, [id]: 'Error fetching data' }));
-			setModalContent('Error fetching data');
+			setModalContent({ type: 'error', data: 'Error fetching data' });
 			setOpenModal(true);
 		}
+	};
+
+	const renderModalContent = () => {
+		if (!modalContent || typeof modalContent === 'string') {
+			return (
+				<Typography>{modalContent || 'No data available'}</Typography>
+			);
+		}
+
+		const { type, data } = modalContent;
+
+		if (type === 'error' || !Array.isArray(data)) {
+			return <Typography>{String(data)}</Typography>;
+		}
+
+		if (data.length === 0) {
+			return <Typography>No results found.</Typography>;
+		}
+
+		// Get column headers from first object
+		const headers = Object.keys(data[0]);
+
+		// Helper function to format headers nicely
+		const formatHeader = (header) => {
+			return header
+				.replace(/_/g, ' ') // Replace underscores with spaces
+				.split(' ')
+				.map(
+					(word) =>
+						word.charAt(0).toUpperCase() +
+						word.slice(1).toLowerCase()
+				)
+				.join(' ');
+		};
+
+		return (
+			<TableContainer component={Paper}>
+				<Table size='small'>
+					<TableHead>
+						<TableRow>
+							{headers.map((header) => (
+								<TableCell
+									key={header}
+									sx={{ fontWeight: 'bold' }}
+								>
+									{formatHeader(header)}
+								</TableCell>
+							))}
+						</TableRow>
+					</TableHead>
+					<TableBody>
+						{data.map((row, idx) => (
+							<TableRow key={idx}>
+								{headers.map((header) => (
+									<TableCell key={header}>
+										{row[header] !== null &&
+										row[header] !== undefined
+											? String(row[header])
+											: 'N/A'}
+									</TableCell>
+								))}
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
+			</TableContainer>
+		);
 	};
 
 	return (
@@ -215,7 +289,7 @@ export default function Artists() {
 			<Dialog
 				open={openModal}
 				onClose={() => setOpenModal(false)}
-				maxWidth='md'
+				maxWidth='lg'
 				fullWidth
 			>
 				<DialogTitle
@@ -223,20 +297,24 @@ export default function Artists() {
 						display: 'flex',
 						justifyContent: 'space-between',
 						alignItems: 'center',
+						fontFamily: 'Georgia, serif',
+						fontWeight: 'medium',
 					}}
 				>
-					Result
+					Results
 					<Button
 						onClick={() => setOpenModal(false)}
-						sx={{ minWidth: 'auto', fontWeight: 'bold' }}
+						sx={{
+							minWidth: 'auto',
+							fontWeight: 'bold',
+							color: 'black',
+						}}
 					>
 						X
 					</Button>
 				</DialogTitle>
-				<DialogContent>
-					<Box component='pre' sx={{ whiteSpace: 'pre-wrap' }}>
-						{modalContent}
-					</Box>
+				<DialogContent sx={{ pt: 2 }}>
+					{renderModalContent()}
 				</DialogContent>
 			</Dialog>
 		</Box>
