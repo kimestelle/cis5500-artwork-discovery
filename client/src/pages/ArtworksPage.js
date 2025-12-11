@@ -8,14 +8,12 @@ import {
   Slider,
   Button,
   Paper,
-  ToggleButton,
-  ToggleButtonGroup,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
 } from '@mui/material';
-import LazyTable from '../components/LazyTable';
+import { DataGrid } from '@mui/x-data-grid';
 import metBgImage from '../assets/met2.png';
 import momaBgImage from '../assets/moma2.png';
 
@@ -27,27 +25,28 @@ export default function ArtworksPage() {
   // initial museum from URL (?museum=met / moma) or 'either'
   const initialMuseum = searchParams.get('museum') || 'either';
 
-  // ---- filters ----
+  // filters
   const [query, setQuery] = useState('');              // general search
   const [museumFilter, setMuseumFilter] = useState(initialMuseum); // met / moma / either
   const [yearRange, setYearRange] = useState([1800, 2025]);
   const [medium, setMedium] = useState('');
   const [nationality, setNationality] = useState('');
 
-  // route passed into LazyTable
-  const [route, setRoute] = useState('');
+  // data + table state
+  const [rows, setRows] = useState([]);
+  const [pageSize, setPageSize] = useState(10);
 
-  // ---- table columns (match your backend fields) ----
+  // columns (must match backend field names)
   const artworkColumns = [
-    { headerName: 'Title', field: 'title' },
-    { headerName: 'Artist', field: 'artist' },
-    { headerName: 'Year', field: 'year' },
-    { headerName: 'Medium', field: 'medium' },
-    { headerName: 'Museum', field: 'museum' },
-    { headerName: 'Nationality', field: 'artist_nationality' },
+    { field: 'title', headerName: 'Title', flex: 2, minWidth: 200 },
+    { field: 'artist', headerName: 'Artist', flex: 2, minWidth: 160 },
+    { field: 'year', headerName: 'Year', width: 100 },
+    { field: 'medium', headerName: 'Medium', flex: 1.5, minWidth: 140 },
+    { field: 'museum', headerName: 'Museum', flex: 2, minWidth: 200 },
+    { field: 'artist_nationality', headerName: 'Nationality', width: 140 },
   ];
 
-  // some example options – replace with whatever is in your DB if you want
+  // options
   const mediumOptions = [
     '',
     'Painting',
@@ -72,15 +71,14 @@ export default function ArtworksPage() {
     'Other',
   ];
 
-  // Build the route with current filters
-  const buildRoute = () => {
+  // Build query string for current filters
+  const buildQueryString = () => {
     const params = new URLSearchParams();
 
-    // general query
     if (query) params.append('q', query);
 
     if (museumFilter !== 'either') {
-      params.append('museum', museumFilter);
+      params.append('museum', museumFilter); // 'met' or 'moma'
     }
 
     params.append('year_low', yearRange[0]);
@@ -89,22 +87,37 @@ export default function ArtworksPage() {
     if (medium) params.append('medium', medium);
     if (nationality) params.append('nationality', nationality);
 
-    return `http://${config.server_host}:${config.server_port}/search_artworks?${params.toString()}`;
+    return params.toString();
   };
 
+  // Call backend and load artworks
+  const searchArtworks = () => {
+    const qs = buildQueryString();
+    const url = `http://${config.server_host}:${config.server_port}/search_artworks?${qs}`;
+
+    fetch(url)
+      .then((res) => res.json())
+      .then((resJson) => {
+        const rowsWithId = resJson.map((art) => ({
+          id: art.artwork_id, // from backend SELECT alias
+          ...art,
+        }));
+        setRows(rowsWithId);
+      })
+      .catch((err) => {
+        console.error(err);
+        alert('Error fetching artworks. Please try again.');
+      });
+  };
+
+  // initial load / when museum changes from URL
   useEffect(() => {
-    setRoute(buildRoute());
+    searchArtworks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [museumFilter]);
 
   const handleSearchClick = () => {
-    setRoute(buildRoute());
-  };
-
-  const handleMuseumChange = (event, newValue) => {
-    if (newValue !== null) {
-      setMuseumFilter(newValue);
-    }
+    searchArtworks();
   };
 
   return (
@@ -176,21 +189,6 @@ export default function ArtworksPage() {
             />
           </Grid>
 
-          {/* Museum toggle */}
-          <Grid item xs={12}>
-            <Typography gutterBottom>Museum</Typography>
-            <ToggleButtonGroup
-              value={museumFilter}
-              exclusive
-              onChange={handleMuseumChange}
-              size="small"
-            >
-              <ToggleButton value="met">MET</ToggleButton>
-              <ToggleButton value="moma">MoMA</ToggleButton>
-              <ToggleButton value="either">Either</ToggleButton>
-            </ToggleButtonGroup>
-          </Grid>
-
           {/* Year slider */}
           <Grid item xs={12}>
             <Typography gutterBottom>Time of Creation (Year)</Typography>
@@ -255,14 +253,16 @@ export default function ArtworksPage() {
           Results
         </Typography>
 
-        {route && (
-          <LazyTable
-            route={route}
+        <div style={{ width: '100%', backgroundColor: 'white' }}>
+          <DataGrid
+            rows={rows}
             columns={artworkColumns}
-            defaultPageSize={10}
+            pageSize={pageSize}
             rowsPerPageOptions={[5, 10, 25]}
+            onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+            autoHeight
           />
-        )}
+        </div>
       </Paper>
     </Container>
   );

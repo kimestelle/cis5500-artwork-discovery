@@ -23,15 +23,40 @@ connection.connect((err) => err && console.log(err));
 * ARTWORKS ROUTES *
 ******************/
 // Route: GET /search_artworks
+// Route: GET /search_artworks
 const search_artworks = async function (req, res) {
   const q = req.query.q ?? '';
-  const museum = req.query.museum ?? '';
-  const yearLow = req.query.year_low ?? 0;
-  const yearHigh = req.query.year_high ?? 3000;
   const medium = req.query.medium ?? '';
   const nationality = req.query.nationality ?? '';
 
   const searchPattern = q === '' ? '%' : `%${q}%`;
+
+  // --- Normalize museum filter coming from frontend ---
+  const rawMuseum = req.query.museum ?? ''; // 'met', 'moma', or full text
+
+  let museum = '';
+  if (rawMuseum) {
+    const lower = rawMuseum.toLowerCase();
+    if (lower === 'met' || lower === 'metropolitan') {
+      museum = 'The Metropolitan Museum of Art';
+    } else if (lower === 'moma' || lower.includes('modern')) {
+      // adjust if your MoMA string is slightly different
+      museum = 'The Museum of Modern Art';
+    } else {
+      // if user typed a full name, just use it as-is
+      museum = rawMuseum;
+    }
+  }
+
+  // --- Safely parse year range to integers ---
+  const rawYearLow = req.query.year_low;
+  const rawYearHigh = req.query.year_high;
+
+  let yearLow = parseInt(rawYearLow, 10);
+  let yearHigh = parseInt(rawYearHigh, 10);
+
+  if (Number.isNaN(yearLow)) yearLow = 0;
+  if (Number.isNaN(yearHigh)) yearHigh = 3000;
 
   connection.query(
     `
@@ -63,6 +88,7 @@ const search_artworks = async function (req, res) {
     }
   );
 };
+
 
 // Route 4: GET /learnartists/:minimum
 const learnartists = async function (req, res) {
