@@ -21,6 +21,10 @@ app.use(cors({
 // app.get('/search_songs', routes.search_songs);
 // app.get('/playlist/entrance_songs', routes.entrance_songs);
 
+app.get('/search_artworks', routes.search_artworks);
+app.get('/topartists/:museum', routes.topartists);
+app.get('/learnartists/:artist', routes.learnartists);
+
 app.listen(config.server_port, () => {
   console.log(`Server running at http://${config.server_host}:${config.server_port}/`)
 });

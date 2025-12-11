@@ -64,6 +64,78 @@ const search_artworks = async function (req, res) {
   );
 };
 
+// Route 4: GET /learnartists/:minimum
+const learnartists = async function (req, res) {
+    // here we implement a route that gives you the avg time and num pieces of each artist
+    const minimum = req.params.minimum;
+    connection.query(
+    `
+    SELECT
+        Artist.Name AS Artist,
+        COUNT(*) AS TotalArtCount,
+        AVG(Artwork.YearEnd - Artwork.YearStart) AS AvgTime
+    FROM Artist
+    JOIN Artwork ON Artist.ArtistID = Artwork.ArtistId
+    GROUP BY Artist.ArtistID
+    HAVING 
+        COUNT(*) >= '${minimum}'
+        AND AVG(Artwork.YearEnd - Artwork.YearStart) >= ALL (
+            SELECT AVG(aw.YearEnd - aw.YearStart)
+            FROM Artist a2
+            JOIN Artwork aw ON a2.ArtistID = aw.ArtistId
+            GROUP BY a2.ArtistID
+        )
+    ORDER BY AvgTime DESC;
+    `,
+        [minimum],
+        (err, data) => {
+            if (err) {
+                console.log(err);
+                res.json({});
+            } else {
+                res.json(data.rows[0]);
+            }
+        }
+    );
+};
+
+
+// Route 6: GET /topartists/:museum
+const topartists = async function (req, res) {
+  const museum = req.params.museum || '';
+
+  connection.query(
+    `
+    SELECT
+      a.artistid,
+      a.name AS artistname,
+      aw.museum,
+      COUNT(aw.artworkid) AS artworkcount
+    FROM artwork aw
+    JOIN artist a ON aw.artistid = a.artistid
+    WHERE ($1 = '' OR aw.museum = $1)
+    GROUP BY a.artistid, a.name, aw.museum
+    ORDER BY artworkcount DESC, a.name ASC
+    LIMIT 10;
+    `,
+    [museum],
+    (err, data) => {
+      if (err) {
+        console.log(err);
+        res.json([]);
+      } else {
+        res.json(data.rows);
+      }
+    }
+  );
+};
+
+
+module.exports = {
+	search_artworks,
+	learnartists,
+	topartists,
+};
 
 // /******************
 //  * WARM UP ROUTES *
@@ -419,15 +491,3 @@ const search_artworks = async function (req, res) {
 // 	);
 // };
 
-// module.exports = {
-// 	author,
-// 	random,
-// 	song,
-// 	album,
-// 	albums,
-// 	album_songs,
-// 	top_songs,
-// 	top_albums,
-// 	search_songs,
-// 	entrance_songs,
-// };

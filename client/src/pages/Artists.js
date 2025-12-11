@@ -2,6 +2,8 @@ import { Box, Typography, TextField } from '@mui/material';
 import backgroundImage from '../assets/background.jpg';
 import { useState } from 'react';
 
+const config = require('../config.json');
+
 export default function Artists() {
 	const [answers, setAnswers] = useState({});
 	const [results, setResults] = useState({});
@@ -41,23 +43,38 @@ export default function Artists() {
 	};
 
 	const handleSubmit = async (id) => {
-		const value = answers[id];
-		if (!value) return;
-		let endpoint;
-		if (id === 'topartists') {
-			endpoint = `/topartists/${value}`;
-		} else if (id === 'timebymedium') {
-			endpoint = `/timebymedium/${value}`;
+	const value = answers[id];
+	if (!value) return;
+
+	let endpoint = '';
+
+	if (id === 'topartists') {
+		endpoint = `http://${config.server_host}:${config.server_port}/topartists/${encodeURIComponent(
+		value
+		)}`;
+	} else if (id === 'timebymedium') {
+		endpoint = `http://${config.server_host}:${config.server_port}/timebymedium/${encodeURIComponent(
+		value
+		)}`;
+	}
+
+	console.log('Fetching from endpoint:', endpoint);
+
+	try {
+		const res = await fetch(endpoint);
+
+		if (!res.ok) {
+		throw new Error(`HTTP ${res.status}`);
 		}
-		try {
-			const res = await fetch(endpoint);
-			const data = await res.json();
-			setResults((prev) => ({ ...prev, [id]: data }));
-		} catch (err) {
-			console.error(err);
-			setResults((prev) => ({ ...prev, [id]: 'Error fetching data' }));
-		}
+
+		const data = await res.json();
+		setResults((prev) => ({ ...prev, [id]: data }));
+	} catch (err) {
+		console.error(err);
+		setResults((prev) => ({ ...prev, [id]: 'Error fetching data' }));
+	}
 	};
+
 
 	return (
 		<Box

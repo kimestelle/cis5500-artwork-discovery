@@ -89,9 +89,7 @@ export default function ArtworksPage() {
     if (medium) params.append('medium', medium);
     if (nationality) params.append('nationality', nationality);
 
-	return [];
-
-    // return `http://${config.server_host}:${config.server_port}/search_artworks?${params.toString()}`;
+    return `http://${config.server_host}:${config.server_port}/search_artworks?${params.toString()}`;
   };
 
   useEffect(() => {
@@ -120,7 +118,7 @@ export default function ArtworksPage() {
             ? momaBgImage
             : museumFilter === 'met'
             ? metBgImage
-            : metBgImage // default; you can choose
+            : metBgImage
         })`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
@@ -150,7 +148,6 @@ export default function ArtworksPage() {
           : `Showing artworks from ${museumFilter.toUpperCase()}`}
       </Typography>
 
-      {/* Filters + Table */}
       <Paper
         elevation={4}
         sx={{
@@ -199,7 +196,7 @@ export default function ArtworksPage() {
             <Typography gutterBottom>Time of Creation (Year)</Typography>
             <Slider
               value={yearRange}
-              min={1200}    // adjust to your dataset
+              min={1200}
               max={2025}
               step={5}
               onChange={(e, newValue) => setYearRange(newValue)}
