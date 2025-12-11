@@ -8,23 +8,15 @@ app.use(cors({
   origin: '*',
 }));
 
-// We use express to define our various API endpoints and
-// provide their handlers that we implemented in routes.js
-// app.get('/author/:type', routes.author);
-// app.get('/random', routes.random);
-// app.get('/song/:song_id', routes.song);
-// app.get('/album/:album_id', routes.album);
-// app.get('/albums', routes.albums);
-// app.get('/album_songs/:album_id', routes.album_songs);
-// app.get('/top_songs', routes.top_songs);
-// app.get('/top_albums', routes.top_albums);
-// app.get('/search_songs', routes.search_songs);
-// app.get('/playlist/entrance_songs', routes.entrance_songs);
-
 app.get('/search_artworks', routes.search_artworks);
 app.get('/topartists/:museum', routes.topartists);
-app.get('/learnartists/:artist', routes.learnartists);
+app.get('/learnartists/:minimum', routes.learnartists);
 app.get('/numkeywords/:keywords', routes.numkeywords);
+app.get('/popularity/:name', routes.popularity);
+app.get('/bios/:museum', routes.bios);
+app.get('/artist_events', routes.artist_events);
+app.get('/artist_successors', routes.artist_successors);
+app.get('/event_artworks', routes.event_artworks);
 
 app.listen(config.server_port, () => {
   console.log(`Server running at http://${config.server_host}:${config.server_port}/`)

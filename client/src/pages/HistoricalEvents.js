@@ -1,518 +1,393 @@
 import { useState } from 'react';
 import {
-	Container,
-	Link,
-	Stack,
-	Table,
-	TableBody,
-	TableCell,
-	TableContainer,
-	TableHead,
-	TableRow,
-	Button,
-	TextField,
-	Typography,
-	Paper,
-	Box,
+  Container,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Button,
+  Typography,
+  Paper,
+  Box,
 } from '@mui/material';
 import backgroundImage from '../assets/background.jpg';
 
 const config = require('../config.json');
 
 export default function HistoricalEvents() {
-	const [artistId, setArtistId] = useState(null);
-	const [artworkId, setArtworkId] = useState(null);
-	const [eventsNearArtwork, setEventsNearArtwork] = useState([]);
-	const [overlapEvents, setOverlapEvents] = useState([]);
-	const [eventTitle, setEventTitle] = useState(null);
-	const [artistEvent, setArtistEvent] = useState([]);
-	const [artworkEvent, setArtworkEvent] = useState([]);
-	const [artistEventsDisplay, setArtistEventDisplay] = useState(false);
-	const [eventToArtworkDisplay, setEventToArtworkDisplay] = useState(false);
-	const [artworkToEventDisplay, setArtworkToEventDisplay] = useState(false);
-	const [overlapDisplay, setOverlapDisplay] = useState(false);
-	const [error, setError] = useState(null);
+  const [artistEvents, setArtistEvents] = useState([]);
+  const [successors, setSuccessors] = useState([]);
+  const [eventArtworks, setEventArtworks] = useState([]);
 
-	const handleArtistEvents = () => {
-		setError(null);
-		setArtworkEvent([]);
-		setEventTitle(null);
-		if (!artistId) return null;
-		setArtistEventDisplay(true);
-		fetch(
-			`http://${config.server_host}:${config.server_port}/historical/${artworkId}`
-		)
-			.then((res) => res.json())
-			.then((resJson) => setArtistEvent(resJson))
-			.catch((err) => {
-				console.error('Backend Error:', err);
-			})
-			.finally(() => setArtistEventDisplay(false));
-	};
+  const [artistEventsLoading, setArtistEventsLoading] = useState(false);
+  const [successorsLoading, setSuccessorsLoading] = useState(false);
+  const [eventArtworksLoading, setEventArtworksLoading] = useState(false);
 
-	const handleSelectEvent = (historicalTitle) => {
-		setError(null);
-		setEventToArtworkDisplay(true);
-		setEventTitle(historicalTitle);
-		const titleEncode = encodeURIComponent(historicalTitle);
-		fetch(
-			`http://${config.server_host}:${config.server_port}/artist_history/${titleEncode}`
-		)
-			.then((res) => res.json())
-			.then((resJson) => setArtworkEvent(resJson))
-			.catch((err) => {
-				console.error('Backend Error:', err);
-			})
-			.finally(() => setEventToArtworkDisplay(false));
-	};
+  const [error, setError] = useState(null);
 
-	const handleArtworkEvents = () => {
-		setError(null);
-		if (!artworkId) return null;
-		setArtworkToEventDisplay(true);
-		fetch(
-			`http://${config.server_host}:${config.server_port}/artworks/${artworkId}`
-		)
-			.then((res) => res.json())
-			.then((resJson) => setEventsNearArtwork(resJson))
-			.catch((err) => {
-				console.error('Backend Error:', err);
-			})
-			.finally(() => setArtworkToEventDisplay(false));
-	};
+  const baseUrl = `http://${config.server_host}:${config.server_port}`;
 
-	const handleOverlaps = () => {
-		setError(null);
-		setOverlapDisplay(true);
-		fetch(
-			`http://${config.server_host}:${config.server_port}/events/artwork_overlaps`
-		)
-			.then((res) => res.json())
-			.then((resJson) => setArtistEvent(resJson))
-			.catch((err) => {
-				console.error('Backend Error:', err);
-			})
-			.finally(() => setOverlapDisplay(false));
-	};
+  const handleLoadArtistEvents = () => {
+    setError(null);
+    setArtistEventsLoading(true);
 
-	return (
-		<Box
-			sx={{
-				minHeight: '100vh',
-				backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${backgroundImage})`,
-				backgroundSize: 'cover',
-				backgroundPosition: 'center',
-				backgroundAttachment: 'fixed',
-				padding: '40px 20px',
-			}}
-		>
-			<Container sx={{ mt: 12, mb: 6 }}>
-				<Typography
-					variant='h3'
-					sx={{
-						mb: 3,
-						color: 'white',
-						fontFamily: 'Georgia, serif',
-						textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
-					}}
-				>
-					Historical Events & Artworks
-				</Typography>
+    fetch(`${baseUrl}/artist_events`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return res.json();
+      })
+      .then((resJson) => {
+        setArtistEvents(Array.isArray(resJson) ? resJson : []);
+      })
+      .catch((err) => {
+        console.error('artist_events error:', err);
+        setError('Failed to load artist–event connections.');
+        setArtistEvents([]);
+      })
+      .finally(() => setArtistEventsLoading(false));
+  };
 
-				{error && (
-					<Typography
-						sx={{
-							mb: 2,
-							color: 'white',
-							backgroundColor: 'rgba(211, 47, 47, 0.8)',
-							p: 2,
-							borderRadius: 1,
-						}}
-					>
-						{error}
-					</Typography>
-				)}
+  const handleLoadSuccessors = () => {
+    setError(null);
+    setSuccessorsLoading(true);
 
-				{/* Section 1: Events during an artist's lifespan in their nationality */}
-				<Paper
-					sx={{
-						p: 3,
-						mb: 4,
-						backgroundColor: 'rgba(255, 255, 255, 0.95)',
-						borderRadius: 2,
-					}}
-				>
-					<Typography
-						variant='h5'
-						sx={{
-							mb: 2,
-							fontFamily: 'Georgia, serif',
-							fontWeight: 'medium',
-						}}
-					>
-						Events During an Artist&apos;s Lifespan (by Nationality)
-					</Typography>
-					<Stack direction='row' spacing={2} sx={{ mb: 2 }}>
-						<TextField
-							label='Artist ID'
-							variant='outlined'
-							value={artistId}
-							onChange={(e) => setArtistId(e.target.value)}
-							size='small'
-						/>
-						<Button
-							variant='contained'
-							onClick={handleArtistEvents}
-							sx={{
-								backgroundColor: 'black',
-								'&:hover': { backgroundColor: '#333' },
-							}}
-						>
-							Search Events
-						</Button>
-					</Stack>
+    fetch(`${baseUrl}/artist_successors`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return res.json();
+      })
+      .then((resJson) => {
+        setSuccessors(Array.isArray(resJson) ? resJson : []);
+      })
+      .catch((err) => {
+        console.error('artist_successors error:', err);
+        setError('Failed to load artistic successors.');
+        setSuccessors([]);
+      })
+      .finally(() => setSuccessorsLoading(false));
+  };
 
-					{artistEventsDisplay && (
-						<Typography sx={{ fontStyle: 'italic' }}>
-							Loading events for artist...
-						</Typography>
-					)}
+  const handleLoadEventArtworks = () => {
+    setError(null);
+    setEventArtworksLoading(true);
 
-					{!artistEventsDisplay && artistEvent.length > 0 && (
-						<>
-							<Typography sx={{ mb: 1, fontStyle: 'italic' }}>
-								Click an event title to see artworks by artists
-								who lived through that event.
-							</Typography>
-							<TableContainer>
-								<Table size='small'>
-									<TableHead>
-										<TableRow>
-											<TableCell>Title</TableCell>
-											<TableCell>Location</TableCell>
-											<TableCell>Start Date</TableCell>
-											<TableCell>End Date</TableCell>
-											<TableCell>Description</TableCell>
-										</TableRow>
-									</TableHead>
-									<TableBody>
-										{artistEvent.map((row, idx) => (
-											<TableRow
-												key={`${
-													row.eventtitle ||
-													row.Title ||
-													idx
-												}-${idx}`}
-											>
-												<TableCell>
-													<Link
-														component='button'
-														onClick={() =>
-															handleSelectEvent(
-																row.EventTitle ||
-																	row.Title
-															)
-														}
-													>
-														{row.EventTitle ||
-															row.Title}
-													</Link>
-												</TableCell>
-												<TableCell>
-													{row.Location}
-												</TableCell>
-												<TableCell>
-													{row.StartDate}
-												</TableCell>
-												<TableCell>
-													{row.EndDate}
-												</TableCell>
-												<TableCell>
-													{row.EventDescription ||
-														row.Description}
-												</TableCell>
-											</TableRow>
-										))}
-									</TableBody>
-								</Table>
-							</TableContainer>
-						</>
-					)}
+    fetch(`${baseUrl}/event_artworks`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return res.json();
+      })
+      .then((resJson) => {
+        setEventArtworks(Array.isArray(resJson) ? resJson : []);
+      })
+      .catch((err) => {
+        console.error('event_artworks error:', err);
+        setError('Failed to load event–artwork overlaps.');
+        setEventArtworks([]);
+      })
+      .finally(() => setEventArtworksLoading(false));
+  };
 
-					{/* Artworks for selected event */}
-					{eventTitle && (
-						<Stack sx={{ mt: 3 }} spacing={1}>
-							<Typography
-								variant='h6'
-								sx={{
-									fontFamily: 'Georgia, serif',
-									fontWeight: 'medium',
-								}}
-							>
-								Artworks by Artists Who Lived Through:{' '}
-								{eventTitle}
-							</Typography>
-							{eventToArtworkDisplay && (
-								<Typography sx={{ fontStyle: 'italic' }}>
-									Loading artworks for event...
-								</Typography>
-							)}
-							{!eventToArtworkDisplay &&
-								artworkEvent.length === 0 && (
-									<Typography sx={{ fontStyle: 'italic' }}>
-										No artworks found for this event.
-									</Typography>
-								)}
-							{!eventToArtworkDisplay &&
-								artworkEvent.length > 0 && (
-									<TableContainer>
-										<Table size='small'>
-											<TableHead>
-												<TableRow>
-													<TableCell>
-														Artwork Title
-													</TableCell>
-													<TableCell>
-														Medium
-													</TableCell>
-													<TableCell>
-														Description
-													</TableCell>
-													<TableCell>
-														Artist
-													</TableCell>
-												</TableRow>
-											</TableHead>
-											<TableBody>
-												{artworkEvent.map(
-													(row, idx) => (
-														<TableRow
-															key={`${
-																row.ArtworkTitle ||
-																idx
-															}-${idx}`}
-														>
-															<TableCell>
-																{
-																	row.ArtworkTitle
-																}
-															</TableCell>
-															<TableCell>
-																{
-																	row.ArtworkMedium
-																}
-															</TableCell>
-															<TableCell>
-																{
-																	row.ArtworkDescription
-																}
-															</TableCell>
-															<TableCell>
-																{row.Artist}
-															</TableCell>
-														</TableRow>
-													)
-												)}
-											</TableBody>
-										</Table>
-									</TableContainer>
-								)}
-						</Stack>
-					)}
-				</Paper>
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+        padding: '40px 20px',
+      }}
+    >
+      <Container sx={{ mt: 12, mb: 6 }}>
+        <Typography
+          variant="h3"
+          sx={{
+            mb: 3,
+            color: 'white',
+            fontFamily: 'Georgia, serif',
+            textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+          }}
+        >
+          Historical Events & Artworks
+        </Typography>
 
-				{/* Section 2: Events near an artwork's year */}
-				<Paper
-					sx={{
-						p: 3,
-						mb: 4,
-						backgroundColor: 'rgba(255, 255, 255, 0.95)',
-						borderRadius: 2,
-					}}
-				>
-					<Typography
-						variant='h5'
-						sx={{
-							mb: 2,
-							fontFamily: 'Georgia, serif',
-							fontWeight: 'medium',
-						}}
-					>
-						Events Near an Artwork&apos;s Creation Year (±2 Years)
-					</Typography>
-					<Stack direction='row' spacing={2} sx={{ mb: 2 }}>
-						<TextField
-							label='Artwork ID'
-							variant='outlined'
-							value={artworkId}
-							onChange={(e) => setArtworkId(e.target.value)}
-							size='small'
-						/>
-						<Button
-							variant='contained'
-							onClick={handleArtworkEvents}
-							sx={{
-								backgroundColor: 'black',
-								'&:hover': { backgroundColor: '#333' },
-							}}
-						>
-							Search Events
-						</Button>
-					</Stack>
+        {error && (
+          <Typography
+            sx={{
+              mb: 2,
+              color: 'white',
+              backgroundColor: 'rgba(211, 47, 47, 0.8)',
+              p: 2,
+              borderRadius: 1,
+            }}
+          >
+            {error}
+          </Typography>
+        )}
 
-					{artistEventsDisplay && (
-						<Typography sx={{ fontStyle: 'italic' }}>
-							Loading events near artwork year...
-						</Typography>
-					)}
+        <Paper
+          sx={{
+            p: 3,
+            mb: 4,
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: 2,
+          }}
+        >
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={2}
+            sx={{ mb: 2 }}
+          >
+            <Typography
+              variant="h5"
+              sx={{
+                fontFamily: 'Georgia, serif',
+                fontWeight: 'medium',
+              }}
+            >
+              Artists & Historical Events (Shared Keywords)
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={handleLoadArtistEvents}
+              sx={{
+                backgroundColor: 'black',
+                '&:hover': { backgroundColor: '#333' },
+              }}
+            >
+              5 Random Artist–Event Connections
+            </Button>
+          </Stack>
 
-					{!artistEventsDisplay && eventsNearArtwork.length > 0 && (
-						<TableContainer>
-							<Table size='small'>
-								<TableHead>
-									<TableRow>
-										<TableCell>Artwork ID</TableCell>
-										<TableCell>Artwork Title</TableCell>
-										<TableCell>Artwork Year</TableCell>
-										<TableCell>Event Title</TableCell>
-										<TableCell>Location</TableCell>
-										<TableCell>Start Date</TableCell>
-										<TableCell>End Date</TableCell>
-										<TableCell>Description</TableCell>
-									</TableRow>
-								</TableHead>
-								<TableBody>
-									{eventsNearArtwork.map((row, idx) => (
-										<TableRow
-											key={`${row.EventId || idx}-${idx}`}
-										>
-											<TableCell>
-												{row.ArtworkId}
-											</TableCell>
-											<TableCell>
-												{row.ArtworkTitle}
-											</TableCell>
-											<TableCell>
-												{row.ArtworkYear}
-											</TableCell>
-											<TableCell>
-												{row.EventTitle}
-											</TableCell>
-											<TableCell>
-												{row.Location}
-											</TableCell>
-											<TableCell>
-												{row.StartDate}
-											</TableCell>
-											<TableCell>{row.EndDate}</TableCell>
-											<TableCell>
-												{row.Description}
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</TableContainer>
-					)}
-				</Paper>
+          {artistEventsLoading && (
+            <Typography sx={{ fontStyle: 'italic' }}>
+              Loading artist–event connections...
+            </Typography>
+          )}
 
-				{/* Section 3: All events with overlapping artworks */}
-				<Paper
-					sx={{
-						p: 3,
-						backgroundColor: 'rgba(255, 255, 255, 0.95)',
-						borderRadius: 2,
-					}}
-				>
-					<Stack
-						direction='row'
-						alignItems='center'
-						spacing={2}
-						sx={{ mb: 2 }}
-					>
-						<Typography
-							variant='h5'
-							sx={{
-								fontFamily: 'Georgia, serif',
-								fontWeight: 'medium',
-							}}
-						>
-							Events and Overlapping Artworks
-						</Typography>
-						<Button
-							variant='outlined'
-							onClick={handleOverlaps}
-							sx={{
-								borderColor: 'black',
-								color: 'black',
-								'&:hover': {
-									borderColor: '#333',
-									backgroundColor: 'rgba(0,0,0,0.04)',
-								},
-							}}
-						>
-							Load All Overlaps
-						</Button>
-					</Stack>
+          {!artistEventsLoading && artistEvents.length > 0 && (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Artist ID</TableCell>
+                    <TableCell>Artist Name</TableCell>
+                    <TableCell>Event ID</TableCell>
+                    <TableCell>Event Title</TableCell>
+                    <TableCell>Location</TableCell>
+                    <TableCell>Start Date</TableCell>
+                    <TableCell>End Date</TableCell>
+                    <TableCell>Shared Keywords</TableCell>
+                    <TableCell>Matching Keywords</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {artistEvents.map((row, idx) => (
+                    <TableRow
+                      key={`${row.artistid ?? 'artist'}-${
+                        row.eventid ?? 'event'
+                      }-${idx}`}
+                    >
+                      <TableCell>{row.artistid ?? 'N/A'}</TableCell>
+                      <TableCell>{row.artistname ?? 'N/A'}</TableCell>
+                      <TableCell>{row.eventid ?? 'N/A'}</TableCell>
+                      <TableCell>{row.eventtitle ?? 'N/A'}</TableCell>
+                      <TableCell>{row.location ?? 'N/A'}</TableCell>
+                      <TableCell>{row.startdate ?? 'N/A'}</TableCell>
+                      <TableCell>{row.enddate ?? 'N/A'}</TableCell>
+                      <TableCell>{row.sharedkeywords ?? 0}</TableCell>
+                      <TableCell>{row.matchingkeywords ?? ''}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
 
-					{overlapDisplay && (
-						<Typography sx={{ fontStyle: 'italic' }}>
-							Loading overlaps...
-						</Typography>
-					)}
+          {!artistEventsLoading && artistEvents.length === 0 && (
+            <Typography sx={{ fontStyle: 'italic' }}>
+              No artist–event connections loaded yet.
+            </Typography>
+          )}
+        </Paper>
 
-					{!overlapDisplay && overlapEvents.length > 0 && (
-						<TableContainer>
-							<Table size='small'>
-								<TableHead>
-									<TableRow>
-										<TableCell>Event ID</TableCell>
-										<TableCell>Event Title</TableCell>
-										<TableCell>Start Date</TableCell>
-										<TableCell>End Date</TableCell>
-										<TableCell>Artwork ID</TableCell>
-										<TableCell>Artwork Title</TableCell>
-										<TableCell>Year Start</TableCell>
-										<TableCell>Year End</TableCell>
-										<TableCell>Artist Name</TableCell>
-									</TableRow>
-								</TableHead>
-								<TableBody>
-									{overlapEvents.map((row, idx) => (
-										<TableRow
-											key={`${row.EventId}-${
-												row.ArtworkId || 'none'
-											}-${idx}`}
-										>
-											<TableCell>{row.EventId}</TableCell>
-											<TableCell>
-												{row.EventTitle}
-											</TableCell>
-											<TableCell>
-												{row.StartDate}
-											</TableCell>
-											<TableCell>{row.EndDate}</TableCell>
-											<TableCell>
-												{row.ArtworkId}
-											</TableCell>
-											<TableCell>
-												{row.ArtworkTitle}
-											</TableCell>
-											<TableCell>
-												{row.YearStart}
-											</TableCell>
-											<TableCell>{row.YearEnd}</TableCell>
-											<TableCell>
-												{row.ArtistName}
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</TableContainer>
-					)}
-				</Paper>
-			</Container>
-		</Box>
-	);
+        <Paper
+          sx={{
+            p: 3,
+            mb: 4,
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: 2,
+          }}
+        >
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={2}
+            sx={{ mb: 2 }}
+          >
+            <Typography
+              variant="h5"
+              sx={{
+                fontFamily: 'Georgia, serif',
+                fontWeight: 'medium',
+              }}
+            >
+              Artistic Successors (Later Artists with Shared Keywords)
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={handleLoadSuccessors}
+              sx={{
+                backgroundColor: 'black',
+                '&:hover': { backgroundColor: '#333' },
+              }}
+            >
+              5 Random Successors
+            </Button>
+          </Stack>
+
+          {successorsLoading && (
+            <Typography sx={{ fontStyle: 'italic' }}>
+              Loading artistic successors...
+            </Typography>
+          )}
+
+          {!successorsLoading && successors.length > 0 && (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Base Artist</TableCell>
+                    <TableCell>Successor ID</TableCell>
+                    <TableCell>Successor Name</TableCell>
+                    <TableCell>Successor Nationality</TableCell>
+                    <TableCell>Shared Keywords</TableCell>
+					<TableCell>Matching Keywords</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {successors.map((row, idx) => (
+                    <TableRow
+                      key={`${
+                        row.successorartistid ?? 'successor'
+                      }-${idx}`}
+                    >
+                      <TableCell>{row.baseartistname ?? 'N/A'}</TableCell>
+                      <TableCell>{row.successorartistid ?? 'N/A'}</TableCell>
+                      <TableCell>{row.successorartistname ?? 'N/A'}</TableCell>
+                      <TableCell>
+                        {row.successornationality ?? 'N/A'}
+                      </TableCell>
+                      <TableCell>{row.sharedkeywords ?? 0}</TableCell>
+					  <TableCell>{row.matchingkeywords ?? ''}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+
+          {!successorsLoading && successors.length === 0 && (
+            <Typography sx={{ fontStyle: 'italic' }}>
+              No successors loaded yet.
+            </Typography>
+          )}
+        </Paper>
+
+        <Paper
+          sx={{
+            p: 3,
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: 2,
+          }}
+        >
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={2}
+            sx={{ mb: 2 }}
+          >
+            <Typography
+              variant="h5"
+              sx={{
+                fontFamily: 'Georgia, serif',
+                fontWeight: 'medium',
+              }}
+            >
+              Events & Overlapping Artworks (Shared Keywords & Years)
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={handleLoadEventArtworks}
+              sx={{
+                backgroundColor: 'black',
+                '&:hover': { backgroundColor: '#333' },
+              }}
+            >
+              5 Random Event–Artwork Overlaps
+            </Button>
+          </Stack>
+
+          {eventArtworksLoading && (
+            <Typography sx={{ fontStyle: 'italic' }}>
+              Loading event–artwork overlaps...
+            </Typography>
+          )}
+
+          {!eventArtworksLoading && eventArtworks.length > 0 && (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Event ID</TableCell>
+                    <TableCell>Event Title</TableCell>
+                    <TableCell>Artist ID</TableCell>
+                    <TableCell>Artist Name</TableCell>
+                    <TableCell># Overlapping Artworks</TableCell>
+                    <TableCell># Shared Keywords</TableCell>
+                    <TableCell>Matching Keywords</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {eventArtworks.map((row, idx) => (
+                    <TableRow
+                      key={`${row.eventid ?? 'event'}-${
+                        row.artistid ?? 'artist'
+                      }-${idx}`}
+                    >
+                      <TableCell>{row.eventid ?? 'N/A'}</TableCell>
+                      <TableCell>{row.eventtitle ?? 'N/A'}</TableCell>
+                      <TableCell>{row.artistid ?? 'N/A'}</TableCell>
+                      <TableCell>{row.artistname ?? 'N/A'}</TableCell>
+                      <TableCell>
+                        {row.numartworksoverlapping ?? 0}
+                      </TableCell>
+                      <TableCell>{row.numsharedkeywords ?? 0}</TableCell>
+                      <TableCell>{row.matchingkeywords ?? ''}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+
+          {!eventArtworksLoading && eventArtworks.length === 0 && (
+            <Typography sx={{ fontStyle: 'italic' }}>
+              No event–artwork overlaps loaded yet.
+            </Typography>
+          )}
+        </Paper>
+      </Container>
+    </Box>
+  );
 }

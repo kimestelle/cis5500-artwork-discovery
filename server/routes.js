@@ -23,7 +23,6 @@ connection.connect((err) => err && console.log(err));
 * ARTWORKS ROUTES *
 ******************/
 // Route: GET /search_artworks
-// Route: GET /search_artworks
 const search_artworks = async function (req, res) {
   const q = req.query.q ?? '';
   const medium = req.query.medium ?? '';
@@ -31,8 +30,7 @@ const search_artworks = async function (req, res) {
 
   const searchPattern = q === '' ? '%' : `%${q}%`;
 
-  // --- Normalize museum filter coming from frontend ---
-  const rawMuseum = req.query.museum ?? ''; // 'met', 'moma', or full text
+  const rawMuseum = req.query.museum ?? '';
 
   let museum = '';
   if (rawMuseum) {
@@ -40,15 +38,12 @@ const search_artworks = async function (req, res) {
     if (lower === 'met' || lower === 'metropolitan') {
       museum = 'The Metropolitan Museum of Art';
     } else if (lower === 'moma' || lower.includes('modern')) {
-      // adjust if your MoMA string is slightly different
       museum = 'The Museum of Modern Art';
     } else {
-      // if user typed a full name, just use it as-is
       museum = rawMuseum;
     }
   }
 
-  // --- Safely parse year range to integers ---
   const rawYearLow = req.query.year_low;
   const rawYearHigh = req.query.year_high;
 
@@ -92,39 +87,37 @@ const search_artworks = async function (req, res) {
 
 // Route 4: GET /learnartists/:minimum
 const learnartists = async function (req, res) {
-    // here we implement a route that gives you the avg time and num pieces of each artist
-    const minimum = req.params.minimum;
-    connection.query(
+  const minimumRaw = req.params.minimum;
+  const minimum = parseInt(minimumRaw, 10);
+
+  if (Number.isNaN(minimum) || minimum < 1) {
+    return res.status(400).json({ error: 'minimum must be a positive integer' });
+  }
+
+  connection.query(
     `
     SELECT
-        Artist.Name AS Artist,
-        COUNT(*) AS TotalArtCount,
-        AVG(Artwork.YearEnd - Artwork.YearStart) AS AvgTime
-    FROM Artist
-    JOIN Artwork ON Artist.ArtistID = Artwork.ArtistId
-    GROUP BY Artist.ArtistID
-    HAVING 
-        COUNT(*) >= '${minimum}'
-        AND AVG(Artwork.YearEnd - Artwork.YearStart) >= ALL (
-            SELECT AVG(aw.YearEnd - aw.YearStart)
-            FROM Artist a2
-            JOIN Artwork aw ON a2.ArtistID = aw.ArtistId
-            GROUP BY a2.ArtistID
-        )
-    ORDER BY AvgTime DESC;
+      a.Name AS Artist,
+      COUNT(*) AS TotalArtCount,
+      AVG(aw.YearEnd - aw.YearStart) AS AvgTime
+    FROM Artist a
+    JOIN Artwork aw
+      ON a.ArtistID = aw.ArtistId
+    GROUP BY a.ArtistID, a.Name
+    HAVING COUNT(*) >= $1
+    ORDER BY TotalArtCount DESC, a.Name ASC;
     `,
-        [minimum],
-        (err, data) => {
-            if (err) {
-                console.log(err);
-                res.json({});
-            } else {
-                res.json(data.rows[0]);
-            }
-        }
-    );
+    [minimum],
+    (err, data) => {
+      if (err) {
+        console.log('learnartists error:', err);
+        res.json([]);
+      } else {
+        res.json(data.rows);
+      }
+    }
+  );
 };
-
 
 // Route 6: GET /topartists/:museum
 const topartists = async function (req, res) {
@@ -158,7 +151,12 @@ const topartists = async function (req, res) {
 
 // Route 6: GET /numkeywords/:keywords
 const numkeywords = async function (req, res) {
-  const keywords = req.params.keywords;
+  const keywords = parseInt(req.params.keywords, 10);
+
+  if (Number.isNaN(keywords)) {
+    return res.status(400).json({ error: 'keywords must be a number' });
+  }
+
   connection.query(
     `
     WITH pair_counts AS (
@@ -174,7 +172,7 @@ const numkeywords = async function (req, res) {
         ak1.ArtistId,
         ak2.ArtistId
       HAVING
-        COUNT(DISTINCT ak1.KeywordId) >= '${keywords}'
+        COUNT(DISTINCT ak1.KeywordId) >= $1
     )
     SELECT
       a1.Name AS ArtistName1,
@@ -221,7 +219,7 @@ const popularity = async function (req, res) {
       FROM Artwork
       GROUP BY ArtistId
     ) ap ON a.ArtistID = ap.ArtistId
-    WHERE ArtistName = '${artist}'
+    WHERE a.Name = $1
     ORDER BY Score DESC;
     `,
     [name],
@@ -236,64 +234,235 @@ const popularity = async function (req, res) {
   );
 };
 
-// Route 6: GET /bios/:num
+// Route: GET /bios/:museum
 const bios = async function (req, res) {
-  const name = req.params.num;
+  const rawMuseum = (req.params.museum || '').trim();
+
+  let museum = '';
+  const lower = rawMuseum.toLowerCase();
+
+  if (lower === 'met' || lower === 'metropolitan') {
+    museum = 'The Metropolitan Museum of Art';
+  } else if (lower === 'moma' || lower.includes('modern')) {
+    museum = 'Museum of Modern Art';
+  } else {
+    museum = rawMuseum;
+  }
+
+  const limit = 10;
+
+  console.log('bios rawMuseum:', rawMuseum, 'normalized museum:', museum);
+
   connection.query(
     `
     WITH WikiLinkedArtists AS (
-      SELECT
-        a.ArtistId,
-        a.Name,
-        a.Nationality,
-        w.text
-      FROM Artist a
-      JOIN Bios w
-        ON LOWER(a.Name) = LOWER(w.name)
+        SELECT
+            a.ArtistId,
+            a.Name,
+            a.Nationality,
+            w.text
+        FROM Artist a
+        JOIN Bios4 w
+            ON LOWER(a.Name) = LOWER(w.name)
     ),
     ArtworksPerMuseum AS (
-      SELECT
-        m.MuseumId AS MuseumId,
-        ar.Name    AS ArtistName,
-        COUNT(aw.ArtworkId) AS ArtworkCount
-      FROM Artwork aw
-      JOIN Artist ar
-        ON aw.ArtistId = ar.ArtistId
-      JOIN Museum m
-        ON aw.Museum = m.Name
-      GROUP BY m.MuseumId, ar.Name
+        SELECT
+            m.MuseumId AS MuseumId,
+            ar.Name    AS ArtistName,
+            COUNT(aw.ArtworkId) AS ArtworkCount
+        FROM Artwork aw
+        JOIN Artist ar
+            ON aw.ArtistId = ar.ArtistId
+        JOIN Museum m
+            ON aw.Museum = m.Name
+        GROUP BY m.MuseumId, ar.Name
     ),
     RankedPerMuseum AS (
-      SELECT
-        MuseumId,
-        ArtistName,
-        ArtworkCount,
-        ROW_NUMBER() OVER (
-            PARTITION BY MuseumId
-            ORDER BY ArtworkCount DESC, LOWER(ArtistName) ASC
-        ) AS rn
-      FROM ArtworksPerMuseum
-  )
-  SELECT
-    m.Name AS MuseumName,
-    COALESCE(wla.Name, rpm.ArtistName) AS ArtistName,
-    wla.Nationality,
-    wla.text AS Text,
-    rpm.ArtworkCount AS NumArtworksInMuseum,
-    rpm.rn AS RankInMuseum
-  FROM RankedPerMuseum rpm
-  JOIN Museum m
-    ON rpm.MuseumId = m.MuseumId
-  LEFT JOIN WikiLinkedArtists wla
-    ON LOWER(rpm.ArtistName) = LOWER(wla.Name)
-  WHERE rpm.rn <= '${num}'
-    AND m.Name = $1
-  ORDER BY m.Name, rpm.rn;
-  `,
-    [num],
+        SELECT
+            MuseumId,
+            ArtistName,
+            ArtworkCount,
+            ROW_NUMBER() OVER (
+                PARTITION BY MuseumId
+                ORDER BY ArtworkCount DESC, LOWER(ArtistName) ASC
+            ) AS rn
+        FROM ArtworksPerMuseum
+    )
+    SELECT
+        m.Name AS MuseumName,
+        COALESCE(wla.Name, rpm.ArtistName) AS ArtistName,
+        wla.Nationality,
+        wla.text AS Text,
+        rpm.ArtworkCount AS NumArtworksInMuseum,
+        rpm.rn AS RankInMuseum
+    FROM RankedPerMuseum rpm
+    JOIN Museum m
+        ON rpm.MuseumId = m.MuseumId
+    LEFT JOIN WikiLinkedArtists wla
+        ON LOWER(rpm.ArtistName) = LOWER(wla.Name)
+    WHERE rpm.rn <= $2
+      AND m.Name = $1
+    ORDER BY m.Name, rpm.rn;
+    `,
+    [museum, limit],
     (err, data) => {
       if (err) {
-        console.log(err);
+        console.log('bios query error:', err);
+        res.json([]);
+      } else {
+        console.log('bios rows length:', data.rows.length);
+        res.json(data.rows);
+      }
+    }
+  );
+};
+
+// Route: GET /artist_events
+const artist_events = async function (req, res) {
+  connection.query(
+    `
+    WITH artist_event_data AS (
+      SELECT
+          a.ArtistId,
+          a.Name AS ArtistName,
+          h.EventId,
+          h.Title AS EventTitle,
+          h.Location,
+          h.StartDate,
+          h.EndDate,
+          h.Description AS EventDescription,
+          COUNT(DISTINCT hkey.KeywordId) AS SharedKeywords,
+          STRING_AGG(DISTINCT key.Term, ', ' ORDER BY key.Term) AS MatchingKeywords
+      FROM Artist a
+      JOIN ArtistKeywords artkey ON artkey.ArtistId = a.ArtistId
+      JOIN HistoricalEventKeywords hkey ON hkey.KeywordId = artkey.KeywordId
+      JOIN HistoricalEvents h ON h.EventId = hkey.EventId
+      JOIN Keyword key ON key.KeywordId = hkey.KeywordId
+      WHERE
+          a.BirthYear <= EXTRACT(YEAR FROM h.EndDate)
+          AND (a.DeathYear IS NULL OR a.DeathYear >= EXTRACT(YEAR FROM h.StartDate))
+      GROUP BY
+          a.ArtistId,
+          a.Name,
+          h.EventId,
+          h.Title,
+          h.Location,
+          h.StartDate,
+          h.EndDate,
+          h.Description
+    )
+    SELECT *
+    FROM artist_event_data
+	WHERE SharedKeywords >= 10
+    ORDER BY RANDOM()
+    LIMIT 5;
+    `,
+    [],
+    (err, data) => {
+      if (err) {
+        console.log('artist_events error:', err);
+        res.json([]);
+      } else {
+        res.json(data.rows);
+      }
+    }
+  );
+};
+
+// Route: GET /artist_successors
+const artist_successors = async function (req, res) {
+  connection.query(
+    `
+    WITH successor_data AS (
+      SELECT
+          ba.Name AS BaseArtistName,
+          successor.ArtistId AS SuccessorArtistId,
+          successor.Name AS SuccessorArtistName,
+          successor.Nationality AS SuccessorNationality,
+          COUNT(DISTINCT ak_successor.KeywordId) AS SharedKeywords,
+          STRING_AGG(DISTINCT k.Term, ', ' ORDER BY k.Term) AS MatchingKeywords
+      FROM Artist ba
+      CROSS JOIN LATERAL (
+          SELECT
+              a.ArtistId,
+              a.Name,
+              a.Nationality
+          FROM Artist a
+          WHERE
+              a.ArtistId != ba.ArtistId
+              AND a.BirthYear > COALESCE(ba.DeathYear, ba.BirthYear + 20)
+      ) AS successor
+      JOIN ArtistKeywords ak_base 
+        ON ak_base.ArtistId = ba.ArtistId
+      JOIN ArtistKeywords ak_successor
+        ON ak_successor.ArtistId = successor.ArtistId
+       AND ak_successor.KeywordId = ak_base.KeywordId
+      JOIN Keyword k
+        ON k.KeywordId = ak_successor.KeywordId
+      GROUP BY
+          ba.ArtistId,
+          ba.Name,
+          successor.ArtistId,
+          successor.Name,
+          successor.Nationality
+      HAVING COUNT(DISTINCT ak_successor.KeywordId) >= 10
+    )
+    SELECT *
+    FROM successor_data
+    ORDER BY RANDOM()
+    LIMIT 5;
+    `,
+    [],
+    (err, data) => {
+      if (err) {
+        console.log('artist_successors error:', err);
+        res.json([]);
+      } else {
+        res.json(data.rows);
+      }
+    }
+  );
+};
+
+// Route: GET /event_artworks
+const event_artworks = async function (req, res) {
+  connection.query(
+    `
+    WITH event_artwork_data AS (
+      SELECT
+          h.EventId,
+          h.Title AS EventTitle,
+          artist.ArtistId,
+          artist.Name AS ArtistName,
+          COUNT(DISTINCT a.ArtworkId) AS NumArtworksOverlapping,
+          COUNT(DISTINCT hekey.KeywordId) AS NumSharedKeywords,
+          STRING_AGG(DISTINCT key.Term, ', ' ORDER BY key.Term) AS MatchingKeywords
+      FROM HistoricalEvents h
+      JOIN HistoricalEventKeywords hekey ON hekey.EventId = h.EventId
+      JOIN ArtworkKeywords ak ON ak.KeywordId = hekey.KeywordId
+      JOIN Artwork a
+          ON a.ArtworkId = ak.ArtworkId
+          AND a.YearStart IS NOT NULL
+          AND a.YearStart <= EXTRACT(YEAR FROM h.EndDate)
+          AND COALESCE(a.YearEnd, a.YearStart) >= EXTRACT(YEAR FROM h.StartDate)
+      JOIN Artist artist ON artist.ArtistId = a.ArtistId
+      JOIN Keyword key ON key.KeywordId = hekey.KeywordId
+      GROUP BY
+          h.EventId,
+          h.Title,
+          artist.ArtistId,
+          artist.Name
+    )
+    SELECT *
+    FROM event_artwork_data
+	WHERE NumArtworksOverlapping >= 1 AND NumSharedKeywords >= 10
+    ORDER BY RANDOM()
+    LIMIT 5;
+    `,
+    [],
+    (err, data) => {
+      if (err) {
+        console.log('event_artworks error:', err);
         res.json([]);
       } else {
         res.json(data.rows);
@@ -309,360 +478,8 @@ module.exports = {
 	topartists,
   numkeywords,
   popularity,
-  bios
+  bios,
+  artist_events,
+  artist_successors,
+  event_artworks,
 };
-
-// /******************
-//  * WARM UP ROUTES *
-//  ******************/
-
-// // Route 1: GET /author/:type
-// const author = async function (req, res) {
-// 	// TODO (TASK 1): replace the values of name and pennkey with your own
-// 	const name = 'Sophia Tang';
-// 	const pennkey = 'sophtang';
-
-// 	// checks the value of type in the request parameters
-// 	// note that parameters are required and are specified in server.js in the endpoint by a colon (e.g. /author/:type)
-// 	if (req.params.type === 'name') {
-// 		// res.json returns data back to the requester via an HTTP response
-// 		res.json({ data: name });
-// 	} else if (req.params.type === 'pennkey') {
-// 		// TODO (TASK 2): edit the else if condition to check if the request parameter is 'pennkey' and if so, send back a JSON response with the pennkey
-// 		res.json({ data: pennkey });
-// 	} else {
-// 		res.status(400).json({});
-// 	}
-// };
-
-// // Route 2: GET /random
-// const random = async function (req, res) {
-// 	// you can use a ternary operator to check the value of request query values
-// 	// which can be particularly useful for setting the default value of queries
-// 	// note if users do not provide a value for the query it will be undefined, which is falsey
-// 	const explicit = req.query.explicit === 'true' ? 1 : 0;
-
-// 	// Here is a complete example of how to query the database in JavaScript.
-// 	// Only a small change (unrelated to querying) is required for TASK 3 in this route.
-// 	connection.query(
-// 		`
-//     SELECT *
-//     FROM Songs
-//     WHERE explicit <= ${explicit}
-//     ORDER BY RANDOM()
-//     LIMIT 1
-//   `,
-// 		(err, data) => {
-// 			if (err) {
-// 				// If there is an error for some reason, print the error message and
-// 				// return an empty object instead
-// 				console.log(err);
-// 				// Be cognizant of the fact we return an empty object {}. For future routes, depending on the
-// 				// return type you may need to return an empty array [] instead.
-// 				res.json({});
-// 			} else {
-// 				// Here, we return results of the query as an object, keeping only relevant data
-// 				// being song_id and title which you will add. In this case, there is only one song
-// 				// so we just directly access the first element of the query results array (data.rows[0])
-// 				// TODO (TASK 3): also return the song title in the response
-// 				res.json({
-// 					song_id: data.rows[0].song_id,
-// 					title: data.rows[0].title,
-// 				});
-// 			}
-// 		}
-// 	);
-// };
-
-// /********************************
-//  * BASIC SONG/ALBUM INFO ROUTES *
-//  ********************************/
-
-// // Route 3: GET /song/:song_id
-// const song = async function (req, res) {
-// 	// TODO (TASK 4): implement a route that given a song_id, returns all information about the song
-// 	// Hint: unlike route 2, you can directly SELECT * and just return data.rows[0]
-// 	// Most of the code is already written for you, you just need to fill in the query
-// 	const songId = req.params.song_id;
-// 	connection.query(
-// 		`
-//     SELECT * 
-//     FROM Songs
-//     WHERE song_id = $1;
-//     `,
-// 		[songId],
-// 		(err, data) => {
-// 			if (err) {
-// 				console.log(err);
-// 				res.json({});
-// 			} else {
-// 				res.json(data.rows[0]);
-// 			}
-// 		}
-// 	);
-// };
-
-// // Route 4: GET /album/:album_id
-// const album = async function (req, res) {
-// 	// TODO (TASK 5): implement a route that given a album_id, returns all information about the album
-// 	const albumId = req.params.album_id;
-// 	connection.query(
-// 		`
-//     SELECT * 
-//     FROM Albums
-//     WHERE album_id = $1;
-//     `,
-// 		[albumId],
-// 		(err, data) => {
-// 			if (err) {
-// 				console.log(err);
-// 				res.json({});
-// 			} else {
-// 				res.json(data.rows[0]);
-// 			}
-// 		}
-// 	);
-// };
-
-// // Route 5: GET /albums
-// const albums = async function (req, res) {
-// 	// TODO (TASK 6): implement a route that returns all albums ordered by release date (descending)
-// 	// Note that in this case you will need to return multiple albums, so you will need to return an array of objects
-// 	connection.query(
-// 		`
-//     SELECT * 
-//     FROM Albums
-//     ORDER BY release_date DESC;
-//     `,
-// 		(err, data) => {
-// 			if (err) {
-// 				console.log(err);
-// 				res.json([]);
-// 			} else {
-// 				res.json(data.rows);
-// 			}
-// 		}
-// 	);
-// };
-
-// // Route 6: GET /album_songs/:album_id
-// const album_songs = async function (req, res) {
-// 	// TODO (TASK 7): implement a route that given an album_id, returns all songs on that album ordered by track number (ascending)
-// 	const albumId = req.params.album_id;
-// 	connection.query(
-// 		`
-//     SELECT song_id, title, number, duration, plays
-//     FROM Songs
-//     WHERE album_id = $1
-//     ORDER BY number ASC;
-//     `,
-// 		[albumId],
-// 		(err, data) => {
-// 			if (err) {
-// 				console.log(err);
-// 				res.json([]);
-// 			} else {
-// 				res.json(data.rows);
-// 			}
-// 		}
-// 	);
-// };
-
-// /************************
-//  * ADVANCED INFO ROUTES *
-//  ************************/
-
-// // Route 7: GET /top_songs
-// const top_songs = async function (req, res) {
-// 	const page = req.query.page;
-// 	// TODO (TASK 8): use the ternary (or nullish) operator to set the pageSize based on the query or default to 10
-// 	const pageSize = req.query.page_size ?? 10;
-
-// 	if (!page) {
-// 		// TODO (TASK 9)): query the database and return all songs ordered by number of plays (descending)
-// 		// Hint: you will need to use a JOIN to get the album title as well
-// 		connection.query(
-// 			`
-//       SELECT s.song_id, s.title, s.album_id, a.title AS album, s.plays
-//       FROM Songs s
-//       JOIN Albums a ON s.album_id = a.album_id
-//       ORDER BY s.plays DESC
-//     `,
-// 			(err, data) => {
-// 				if (err) {
-// 					console.log(err);
-// 					res.json([]);
-// 				} else {
-// 					res.json(data.rows);
-// 				}
-// 			}
-// 		);
-// 	} else {
-// 		// TODO (TASK 10): reimplement TASK 9 with pagination
-// 		// Hint: use LIMIT and OFFSET (see https://www.w3schools.com/php/php_mysql_select_limit.asp)
-// 		connection.query(
-// 			`
-//       SELECT s.song_id, s.title, s.album_id, a.title AS album, s.plays
-//       FROM Songs s
-//       JOIN Albums a ON s.album_id = a.album_id
-//       ORDER BY s.plays DESC
-//       LIMIT $1 OFFSET $2
-//     `,
-// 			[pageSize, (page - 1) * pageSize],
-// 			(err, data) => {
-// 				if (err) {
-// 					console.log(err);
-// 					res.json([]);
-// 				} else {
-// 					res.json(data.rows);
-// 				}
-// 			}
-// 		);
-// 	}
-// };
-
-// // Route 8: GET /top_albums
-// const top_albums = async function (req, res) {
-// 	// TODO (TASK 11): return the top albums ordered by aggregate number of plays of all songs on the album (descending), with optional pagination (as in route 7)
-// 	// Hint: you will need to use a JOIN and aggregation to get the total plays of songs in an album
-// 	const page = req.query.page;
-// 	const pageSize = req.query.page_size ?? 10;
-
-// 	if (!page) {
-// 		connection.query(
-// 			`
-//       SELECT a.album_id, a.title, SUM(s.plays) AS plays
-//       FROM Albums a
-//       JOIN Songs s ON a.album_id = s.album_id
-//       GROUP BY a.album_id, a.title
-//       ORDER BY plays DESC
-//     `,
-// 			(err, data) => {
-// 				if (err) {
-// 					console.log(err);
-// 					res.json([]);
-// 				} else {
-// 					res.json(data.rows);
-// 				}
-// 			}
-// 		);
-// 	} else {
-// 		connection.query(
-// 			`
-//       SELECT a.album_id, a.title, SUM(s.plays) AS plays
-//       FROM Albums a
-//       JOIN Songs s ON a.album_id = s.album_id
-//       GROUP BY a.album_id, a.title
-//       ORDER BY plays DESC
-//       LIMIT $1 OFFSET $2
-//     `,
-// 			[pageSize, (page - 1) * pageSize],
-// 			(err, data) => {
-// 				if (err) {
-// 					console.log(err);
-// 					res.json([]);
-// 				} else {
-// 					res.json(data.rows);
-// 				}
-// 			}
-// 		);
-// 	}
-// };
-
-// // Route 9: GET /search_songs
-// const search_songs = async function (req, res) {
-// 	// TODO (TASK 12): return all songs that match the given search query with parameters defaulted to those specified in API spec ordered by title (ascending)
-// 	// Some default parameters have been provided for you, but you will need to fill in the rest
-// 	const title = req.query.title ?? '';
-// 	const titlePattern = title === '' ? '%' : `%${title}%`;
-
-// 	const durationLow = req.query.duration_low ?? 60;
-// 	const durationHigh = req.query.duration_high ?? 660;
-// 	const playsLow = req.query.plays_low ?? 0;
-// 	const playsHigh = req.query.plays_high ?? 1100000000;
-// 	const danceabilityLow = req.query.danceability_low ?? 0;
-// 	const danceabilityHigh = req.query.danceability_high ?? 1;
-// 	const energyLow = req.query.energy_low ?? 0;
-// 	const energyHigh = req.query.energy_high ?? 1;
-// 	const valenceLow = req.query.valence_low ?? 0;
-// 	const valenceHigh = req.query.valence_high ?? 1;
-// 	const explicit = req.query.explicit === 'true' ? 1 : 0;
-
-// 	connection.query(
-// 		`
-//     SELECT song_id, album_id, title, number, duration, plays,
-//            danceability, energy, valence, tempo, key_mode, explicit
-//     FROM Songs
-//     WHERE title LIKE $1
-//       AND duration BETWEEN $2 AND $3
-//       AND plays BETWEEN $4 AND $5
-//       AND danceability BETWEEN $6 AND $7
-//       AND energy BETWEEN $8 AND $9
-//       AND valence BETWEEN $10 AND $11
-//       AND explicit <= $12
-//     ORDER BY title ASC
-//   `,
-// 		[
-// 			titlePattern,
-// 			durationLow,
-// 			durationHigh,
-// 			playsLow,
-// 			playsHigh,
-// 			danceabilityLow,
-// 			danceabilityHigh,
-// 			energyLow,
-// 			energyHigh,
-// 			valenceLow,
-// 			valenceHigh,
-// 			explicit,
-// 		],
-// 		(err, data) => {
-// 			if (err) {
-// 				console.log(err);
-// 				res.json([]);
-// 			} else {
-// 				res.json(data.rows);
-// 			}
-// 		}
-// 	);
-// };
-
-// /**
-//  * Route 10: GET /playlist/entrance_songs - Wedding entrance playlist
-//  *
-//  * Let's celebrate the wedding of Travis and Taylor!
-//  *
-//  * Travis Kelce is cooking up some slow danceable songs with Taylors before the
-//  * highly anticipated Wedding entrance. Travis decides that a slow danceable
-//  * song is one with: maximum energy of 0.5 and a minimum danceability of at least 0.73
-//  * Let's design a wedding entrance playlist for Travis to pass to the DJ
-//  */
-// const entrance_songs = async function (req, res) {
-// 	// TODO (TASK 13): return a selection of songs that meet the criteria above
-// 	// You should allow the user to specify how many songs they want (limit) with a default of 10
-// 	const limit = req.query.limit || 10;
-// 	const maxEnergy = req.query.max_energy || 0.5;
-// 	const minDanceability = req.query.min_danceability || 0.73;
-
-// 	connection.query(
-// 		`
-//     SELECT s.song_id, s.title, a.title AS album, s.danceability, s.energy, s.valence
-//     FROM Songs s
-//     JOIN Albums a ON a.album_id = s.album_id
-//     WHERE s.energy <= $1
-//       AND s.danceability >= $2
-//     ORDER BY s.valence DESC, s.danceability DESC
-//     LIMIT $3
-//   `,
-// 		[maxEnergy, minDanceability, limit],
-// 		(err, data) => {
-// 			if (err) {
-// 				console.log(err);
-// 				res.json([]);
-// 			} else {
-// 				res.json(data.rows);
-// 			}
-// 		}
-// 	);
-// };
-
