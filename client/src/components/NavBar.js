@@ -34,14 +34,16 @@ function NavText({ href, text, isMain }) {
 export default function NavBar() {
 	return (
 		<AppBar
-			position='absolute'
-			sx={{ backgroundColor: 'transparent', boxShadow: 'none' }}
+			position='fixed'
+			sx={{ backgroundColor: 'black', boxShadow: 'none' }}
 		>
 			<Container maxWidth='xl'>
 				<Toolbar disableGutters>
 					<NavText href='/' text='MUSEUM COLLECTIONS' isMain />
 					<NavText href='/artworks?museum=met' text='MET' />
 					<NavText href='/artworks?museum=moma' text='MOMA' />
+					<NavText href='/artists' text='Artists' />
+					<NavText href='/historicalevents' text='Historical Events' />
 				</Toolbar>
 			</Container>
 		</AppBar>

@@ -8,7 +8,10 @@ import HomePage from './pages/HomePage';
 import ArtworksPage from './pages/ArtworksPage';
 import AlbumsPage from './pages/AlbumsPage';
 import SongsPage from './pages/SongsPage';
-import AlbumInfoPage from './pages/AlbumInfoPage';
+
+import AlbumInfoPage from './pages/AlbumInfoPage'
+import Artists from './pages/Artists'; 
+import HistoricalEvents from "./pages/HistoricalEvents";
 
 // createTheme enables you to customize the look and feel of your app past the default
 // in this case, we only change the color scheme
@@ -24,22 +27,21 @@ export const theme = createTheme({
 // our application, with each Route component representing a page and the common
 // NavBar component allowing us to navigate between pages (with hyperlinks)
 export default function App() {
-	return (
-		<ThemeProvider theme={theme}>
-			<CssBaseline />
-			<BrowserRouter>
-				<NavBar />
-				<Routes>
-					<Route path='/' element={<HomePage />} />
-					<Route path='/artworks' element={<ArtworksPage />} />
-					<Route path='/albums' element={<AlbumsPage />} />
-					<Route
-						path='/album/:album_id'
-						element={<AlbumInfoPage />}
-					/>
-					<Route path='/songs' element={<SongsPage />} />
-				</Routes>
-			</BrowserRouter>
-		</ThemeProvider>
-	);
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <NavBar />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/albums" element={<AlbumsPage />} />
+          <Route path="/album/:album_id" element={<AlbumInfoPage />} />
+          <Route path='/artworks' element={<ArtworksPage />} />
+          <Route path="/songs" element={<SongsPage />} />
+          <Route path="/artists" element={<Artists />} />
+          <Route path="/historicalevents" element={<HistoricalEvents />} />
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
+  );
 }
