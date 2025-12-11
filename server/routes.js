@@ -156,11 +156,160 @@ const topartists = async function (req, res) {
   );
 };
 
+// Route 6: GET /numkeywords/:keywords
+const numkeywords = async function (req, res) {
+  const keywords = req.params.keywords;
+  connection.query(
+    `
+    WITH pair_counts AS (
+      SELECT
+        ak1.ArtistId AS ArtistID1,
+        ak2.ArtistId AS ArtistID2,
+        COUNT(DISTINCT ak1.KeywordId) AS SharedKeywords
+      FROM ArtistKeywords ak1
+      JOIN ArtistKeywords ak2
+        ON ak1.KeywordId = ak2.KeywordId
+        AND ak1.ArtistId < ak2.ArtistId
+      GROUP BY
+        ak1.ArtistId,
+        ak2.ArtistId
+      HAVING
+        COUNT(DISTINCT ak1.KeywordId) >= '${keywords}'
+    )
+    SELECT
+      a1.Name AS ArtistName1,
+      a2.Name AS ArtistName2,
+      pc.SharedKeywords
+    FROM pair_counts pc
+    JOIN Artist a1 ON pc.ArtistID1 = a1.ArtistID
+    JOIN Artist a2 ON pc.ArtistID2 = a2.ArtistID
+    ORDER BY
+      pc.SharedKeywords DESC;
+    `,
+    [keywords],
+    (err, data) => {
+      if (err) {
+        console.log(err);
+        res.json([]);
+      } else {
+        res.json(data.rows);
+      }
+    }
+  );
+};
+
+// Route 6: GET /popularity/:name
+const popularity = async function (req, res) {
+  const name = req.params.name;
+  connection.query(
+    `
+    SELECT
+      a.ArtistID,
+      a.Name as ArtistName,
+      COALESCE(ap.ArtworkCount, 0) AS ArtworkCount,
+      COALESCE(ap.MuseumCount, 0)  AS MuseumCount,
+      (
+        COALESCE(ap.ArtworkCount, 0) * 3
+      + COALESCE(ap.MuseumCount, 0) * 5
+      ) AS Score
+    FROM Artist a
+    LEFT JOIN (
+      SELECT
+        ArtistId,
+        COUNT(DISTINCT ArtworkID) AS ArtworkCount,
+        COUNT(DISTINCT Museum)    AS MuseumCount
+      FROM Artwork
+      GROUP BY ArtistId
+    ) ap ON a.ArtistID = ap.ArtistId
+    WHERE ArtistName = '${artist}'
+    ORDER BY Score DESC;
+    `,
+    [name],
+    (err, data) => {
+      if (err) {
+        console.log(err);
+        res.json([]);
+      } else {
+        res.json(data.rows);
+      }
+    }
+  );
+};
+
+// Route 6: GET /bios/:num
+const bios = async function (req, res) {
+  const name = req.params.num;
+  connection.query(
+    `
+    WITH WikiLinkedArtists AS (
+      SELECT
+        a.ArtistId,
+        a.Name,
+        a.Nationality,
+        w.text
+      FROM Artist a
+      JOIN Bios w
+        ON LOWER(a.Name) = LOWER(w.name)
+    ),
+    ArtworksPerMuseum AS (
+      SELECT
+        m.MuseumId AS MuseumId,
+        ar.Name    AS ArtistName,
+        COUNT(aw.ArtworkId) AS ArtworkCount
+      FROM Artwork aw
+      JOIN Artist ar
+        ON aw.ArtistId = ar.ArtistId
+      JOIN Museum m
+        ON aw.Museum = m.Name
+      GROUP BY m.MuseumId, ar.Name
+    ),
+    RankedPerMuseum AS (
+      SELECT
+        MuseumId,
+        ArtistName,
+        ArtworkCount,
+        ROW_NUMBER() OVER (
+            PARTITION BY MuseumId
+            ORDER BY ArtworkCount DESC, LOWER(ArtistName) ASC
+        ) AS rn
+      FROM ArtworksPerMuseum
+  )
+  SELECT
+    m.Name AS MuseumName,
+    COALESCE(wla.Name, rpm.ArtistName) AS ArtistName,
+    wla.Nationality,
+    wla.text AS Text,
+    rpm.ArtworkCount AS NumArtworksInMuseum,
+    rpm.rn AS RankInMuseum
+  FROM RankedPerMuseum rpm
+  JOIN Museum m
+    ON rpm.MuseumId = m.MuseumId
+  LEFT JOIN WikiLinkedArtists wla
+    ON LOWER(rpm.ArtistName) = LOWER(wla.Name)
+  WHERE rpm.rn <= '${num}'
+    AND m.Name = $1
+  ORDER BY m.Name, rpm.rn;
+  `,
+    [num],
+    (err, data) => {
+      if (err) {
+        console.log(err);
+        res.json([]);
+      } else {
+        res.json(data.rows);
+      }
+    }
+  );
+};
+
 
 module.exports = {
 	search_artworks,
 	learnartists,
 	topartists,
+  numkeywords,
+  popularity,
+  bios
 };
 
 // /******************

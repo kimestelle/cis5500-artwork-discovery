@@ -24,6 +24,7 @@ app.use(cors({
 app.get('/search_artworks', routes.search_artworks);
 app.get('/topartists/:museum', routes.topartists);
 app.get('/learnartists/:artist', routes.learnartists);
+app.get('/numkeywords/:keywords', routes.numkeywords);
 
 app.listen(config.server_port, () => {
   console.log(`Server running at http://${config.server_host}:${config.server_port}/`)
