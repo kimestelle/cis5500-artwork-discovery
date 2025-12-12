@@ -387,23 +387,23 @@ export default function Artists() {
 // 		let endpoint = '';
 
 // 		if (id === 'topartists') {
-// 			endpoint = `http://${config.server_host}:${config.server_port}/topartists/${encodeURIComponent(
+// 			endpoint = `${config.server_url}/topartists/${encodeURIComponent(
 // 			value
 // 			)}`;
 // 		} else if (id === 'timebymedium') {
-// 			endpoint = `http://${config.server_host}:${config.server_port}/learnartists/${encodeURIComponent(
+// 			endpoint = `${config.server_url}/learnartists/${encodeURIComponent(
 // 			value
 // 			)}`;
 // 		} else if (id === 'numkeywords') {
-// 			endpoint = `http://${config.server_host}:${config.server_port}/numkeywords/${encodeURIComponent(
+// 			endpoint = `${config.server_url}/numkeywords/${encodeURIComponent(
 // 			value
 // 			)}`;
 // 		} else if (id === 'popularity') {
-// 			endpoint = `http://${config.server_host}:${config.server_port}/popularity/${encodeURIComponent(
+// 			endpoint = `${config.server_url}/popularity/${encodeURIComponent(
 // 			value
 // 			)}`;
 // 		} else if (id === 'bios') {
-// 			endpoint = `http://${config.server_host}:${config.server_port}/bios/${encodeURIComponent(
+// 			endpoint = `${config.server_url}/bios/${encodeURIComponent(
 // 			value
 // 			)}`;
 // 		}
