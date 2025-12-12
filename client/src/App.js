@@ -6,10 +6,11 @@ import { createTheme } from '@mui/material/styles';
 import NavBar from './components/NavBar';
 import HomePage from './pages/HomePage';
 import ArtworksPage from './pages/ArtworksPage';
-import AlbumsPage from './pages/AlbumsPage';
-import SongsPage from './pages/SongsPage';
+import ArtistDetailPage from './pages/ArtistDetailPage';
+import ArtworkDetailPage from './pages/ArtworkDetailPage';
 
-import AlbumInfoPage from './pages/AlbumInfoPage'
+
+import SimilarArtistsPage from './pages/SimilarArtistsPage';
 import Artists from './pages/Artists'; 
 import HistoricalEvents from "./pages/HistoricalEvents";
 
@@ -34,12 +35,12 @@ export default function App() {
         <NavBar />
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/albums" element={<AlbumsPage />} />
-          <Route path="/album/:album_id" element={<AlbumInfoPage />} />
           <Route path='/artworks' element={<ArtworksPage />} />
-          <Route path="/songs" element={<SongsPage />} />
           <Route path="/artists" element={<Artists />} />
           <Route path="/historicalevents" element={<HistoricalEvents />} />
+          <Route path="/similarartists" element={<SimilarArtistsPage />} />
+          <Route path="/artists-detail" element={<ArtistDetailPage />} />
+          <Route path="/artwork-detail" element={<ArtworkDetailPage />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

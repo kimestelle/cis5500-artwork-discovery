@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
 	Container,
 	Typography,
@@ -37,10 +38,46 @@ export default function ArtworksPage() {
 	const [rows, setRows] = useState([]);
 	const [pageSize, setPageSize] = useState(10);
 
+  const navigate = useNavigate();
+
+  //navigate to artist detail and artwork detail pages
+    const handleArtistClick = (artistName, row) => {
+      if (!artistName) return;
+      const artistId = row?.artist_id || row?.artistid || '';
+      navigate(
+        `/artists-detail?name=${encodeURIComponent(artistName)}${
+          artistId ? `&id=${encodeURIComponent(artistId)}` : ''
+        }`
+      );
+    };
+
+    const handleArtworkClick = (artwork) => {
+        const id = artwork.row.id;
+        navigate(`/artwork-detail?id=${id}`);
+    }
+
 	// columns (must match backend field names)
 	const artworkColumns = [
 		{ field: 'title', headerName: 'Title', flex: 2, minWidth: 200 },
-		{ field: 'artist', headerName: 'Artist', flex: 2, minWidth: 160 },
+    {
+      field: 'artist',
+      headerName: 'Artist',
+      flex: 2,
+      minWidth: 160,
+      renderCell: (params) => (
+        <Button
+          variant="text"
+          size="small"
+          sx={{ textTransform: 'none', padding: 0, minWidth: 0 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleArtistClick(params.value, params.row);
+          }}
+        >
+          {params.value}
+        </Button>
+      ),
+    },
 		{ field: 'year', headerName: 'Year', width: 100 },
 		{ field: 'medium', headerName: 'Medium', flex: 1.5, minWidth: 140 },
 		{ field: 'museum', headerName: 'Museum', flex: 2, minWidth: 200 },
@@ -71,6 +108,7 @@ export default function ArtworksPage() {
 		'Korean',
 		'Other',
 	];
+
 
 	// Build query string for current filters
 	const buildQueryString = () => {
@@ -291,7 +329,7 @@ export default function ArtworksPage() {
 						Results
 					</Typography>
 
-					<div style={{ width: '100%', backgroundColor: 'white' }}>
+					<div style={{ width: '100%', backgroundColor: 'white', cursor: 'pointer' }}>
 						<DataGrid
 							rows={rows}
 							columns={artworkColumns}
@@ -300,6 +338,7 @@ export default function ArtworksPage() {
 							onPageSizeChange={(newPageSize) =>
 								setPageSize(newPageSize)
 							}
+              onRowClick={handleArtworkClick}
 							autoHeight
 						/>
 					</div>
