@@ -44,6 +44,7 @@ export default function NavBar() {
 					<NavText href='/artworks?museum=moma' text='MOMA' />
 					<NavText href='/artists' text='Artists' />
 					<NavText href='/historicalevents' text='Historical Events' />
+					<NavText href='/similarartists' text='Artist Graph' />
 				</Toolbar>
 			</Container>
 		</AppBar>
