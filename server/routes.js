@@ -13,6 +13,160 @@ const connection = new Pool({
 
 connection.connect((err) => err && console.log(err));
 
+/******************
+* BASIC ROUTES *
+******************/
+// GET /artwork/:id
+const artwork_detail = async function (req, res) {
+	const artworkId = req.params.id;
+
+	connection.query(`
+SELECT
+  a.artworkid AS artwork_id,
+  a.title,
+  ar.artistid,
+  ar.name AS artist,
+  COALESCE(a.yearstart, a.yearend) AS year,
+  a.medium,
+  a.museum,
+  COALESCE(ar.nationality, a.nationality) AS artist_nationality
+FROM Artwork a
+LEFT JOIN Artist ar ON a.artistid = ar.artistid
+WHERE a.artworkid = $1;
+`, [artworkId], (err, data) => {
+		if (err) {
+			console.log(err);
+			res.json(null);
+		} else {
+			if (data.rows.length === 0) {
+				res.json(null);
+			} else {
+				res.json(data.rows[0]);
+			}
+		}
+	});
+};
+
+// GET /artist/:id
+const artist_detail = async function (req, res) {
+	const artistId = req.params.id;
+	connection.query(`
+SELECT 
+  artistid,
+  name,
+  nationality,
+  birthyear,
+  deathyear
+FROM Artist
+WHERE artistid = $1;
+`, [artistId], (err, data) => {
+		if (err) {
+			console.log(err);
+			res.json(null);
+		} else {
+			if (data.rows.length === 0) {
+				res.json(null);
+			} else {
+				res.json(data.rows[0]);
+			}
+		}
+	});
+};
+
+// GET /artwork/:id/similar
+const artwork_similar = async function (req, res) {
+  const artworkId = req.params.id;
+  connection.query(
+    `
+    WITH base AS (
+      SELECT artistid
+      FROM Artwork
+      WHERE artworkid = $1
+    )
+    SELECT
+      a.artworkid AS artwork_id,
+      a.title,
+      ar.artistid,
+      ar.name AS artist,
+      COALESCE(a.yearstart, a.yearend) AS year,
+      a.medium,
+      a.museum,
+      COALESCE(ar.nationality, a.nationality) AS artist_nationality
+    FROM Artwork a
+    JOIN base b ON a.artistid = b.artistid
+    LEFT JOIN Artist ar ON a.artistid = ar.artistid
+    WHERE a.artworkid <> $1
+    ORDER BY year
+    LIMIT 20;
+    `,
+    [artworkId],
+    (err, data) => {
+      if (err) {
+        console.log('artwork_similar error:', err);
+        res.json([]);
+      } else {
+        res.json(data.rows);
+      }
+    }
+  );
+};
+
+
+//GET /artist/:id/similar
+const artist_similar = async function (req, res) {
+	const artistId = req.params.id;
+	
+	connection.query(`
+WITH base AS (
+   SELECT keywordid FROM ArtistKeywords WHERE artistid = $1
+),
+matches AS (
+   SELECT 
+     ak.artistid,
+     COUNT(*) AS shared
+   FROM ArtistKeywords ak
+   JOIN base b ON ak.keywordid = b.keywordid
+   WHERE ak.artistid != $1
+   GROUP BY ak.artistid
+   HAVING COUNT(*) >= 10
+)
+SELECT m.artistid, a.name, a.nationality, m.shared
+FROM matches m
+JOIN Artist a ON a.artistid = m.artistid
+ORDER BY m.shared DESC
+LIMIT 20;
+`, [artistId], (err, data) => {
+		if (err) {
+			console.log(err);
+			res.json([]);
+		} else {
+			res.json(data.rows);
+		}
+	});	
+};
+
+//GET artist/:id/artworks
+const artist_artworks = async function (req, res) {
+	const artistId = req.params.id;
+	connection.query(`
+SELECT 
+  artworkid AS artwork_id,
+  title,
+  COALESCE(yearstart, yearend) AS year,
+  museum,
+  medium
+FROM Artwork
+WHERE artistid = $1
+ORDER BY year;
+`, [artistId], (err, data) => {	
+		if (err) {
+			console.log(err);
+			res.json([]);
+		} else {
+			res.json(data.rows);
+		}
+	});
+};
 
 /******************
 * ARTWORKS ROUTES *
@@ -33,7 +187,7 @@ const search_artworks = async function (req, res) {
     if (lower === 'met' || lower === 'metropolitan') {
       museum = 'The Metropolitan Museum of Art';
     } else if (lower === 'moma' || lower.includes('modern')) {
-      museum = 'The Museum of Modern Art';
+      museum = 'Museum of Modern Art';
     } else {
       museum = rawMuseum;
     }
@@ -54,6 +208,7 @@ const search_artworks = async function (req, res) {
       a.artworkid AS artwork_id,
       a.title,
       ar.name AS artist,
+	  ar.artistid AS artist_id,
       COALESCE(a.yearstart, a.yearend) AS year,
       a.medium,
       a.museum,
@@ -244,7 +399,7 @@ const bios = async function (req, res) {
     museum = rawMuseum;
   }
 
-  const limit = 10;
+  const limit = 100;
 
   console.log('bios rawMuseum:', rawMuseum, 'normalized museum:', museum);
 
@@ -297,6 +452,7 @@ const bios = async function (req, res) {
         ON LOWER(rpm.ArtistName) = LOWER(wla.Name)
     WHERE rpm.rn <= $2
       AND m.Name = $1
+	  AND wla.text IS NOT NULL
     ORDER BY m.Name, rpm.rn;
     `,
     [museum, limit],
@@ -467,14 +623,111 @@ const event_artworks = async function (req, res) {
 };
 
 
+// Route: GET /similar_artists?minKeywords=10&limit=200
+const similar_artists = async function (req, res) {
+  const minKeywordsRaw = req.query.minKeywords;
+  const limitRaw = req.query.limit;
+
+  const MIN_KEYWORDS_DEFAULT = 5;
+  const LIMIT_DEFAULT = 150;
+  const LIMIT_MAX = 400;
+
+  const minKeywords = parseInt(minKeywordsRaw, 10);
+  const limit = parseInt(limitRaw, 10);
+
+  const minK = Number.isNaN(minKeywords) ? MIN_KEYWORDS_DEFAULT : minKeywords;
+  let lim = Number.isNaN(limit) ? LIMIT_DEFAULT : limit;
+  if (lim > LIMIT_MAX) lim = LIMIT_MAX;
+
+  connection.query(
+    `
+    WITH pair_counts AS (
+      SELECT
+        ak1.ArtistId AS ArtistID1,
+        ak2.ArtistId AS ArtistID2,
+        COUNT(DISTINCT ak1.KeywordId) AS SharedKeywords
+      FROM ArtistKeywords ak1
+      JOIN ArtistKeywords ak2
+        ON ak1.KeywordId = ak2.KeywordId
+        AND ak1.ArtistId < ak2.ArtistId
+      GROUP BY
+        ak1.ArtistId,
+        ak2.ArtistId
+      HAVING
+        COUNT(DISTINCT ak1.KeywordId) >= $1
+    ),
+    sampled_pairs AS (
+      SELECT
+        pc.ArtistID1,
+        pc.ArtistID2,
+        pc.SharedKeywords,
+        a1.Name AS ArtistName1,
+        a2.Name AS ArtistName2
+      FROM pair_counts pc
+      JOIN Artist a1 ON pc.ArtistID1 = a1.ArtistID
+      JOIN Artist a2 ON pc.ArtistID2 = a2.ArtistID
+      ORDER BY RANDOM()
+      LIMIT $2
+    )
+    SELECT * FROM sampled_pairs;
+    `,
+    [minK, lim],
+    (err, data) => {
+      if (err) {
+        console.log('similar_artists error:', err);
+        return res.json({ nodes: [], links: [] });
+      }
+
+      const rows = data.rows || [];
+      const nodeMap = new Map();
+
+      const links = rows.map((row) => {
+        const id1 = row.artistid1;
+        const id2 = row.artistid2;
+
+        if (!nodeMap.has(id1)) {
+          nodeMap.set(id1, {
+            id: id1,
+            name: row.artistname1,
+          });
+        }
+        if (!nodeMap.has(id2)) {
+          nodeMap.set(id2, {
+            id: id2,
+            name: row.artistname2,
+          });
+        }
+
+        return {
+          source: id1,
+          target: id2,
+          weight: row.sharedkeywords,
+        };
+      });
+
+      const nodes = Array.from(nodeMap.values());
+
+      res.json({ nodes, links });
+    }
+  );
+};
+
+
+
 module.exports = {
 	search_artworks,
 	learnartists,
 	topartists,
-  numkeywords,
-  popularity,
-  bios,
-  artist_events,
-  artist_successors,
-  event_artworks,
+	numkeywords,
+	popularity,
+	bios,
+	artist_events,
+	artist_successors,
+	event_artworks,
+	similar_artists,
+	artwork_detail,
+	artist_detail,
+	artwork_similar,
+	artist_similar,
+	artist_artworks,
 };

@@ -27,15 +27,23 @@ app.options("*", cors());
 
 app.locals.db = pool;
 
-app.get("/search_artworks", routes.search_artworks);
-app.get("/topartists/:museum", routes.topartists);
-app.get("/learnartists/:minimum", routes.learnartists);
-app.get("/numkeywords/:keywords", routes.numkeywords);
-app.get("/popularity/:name", routes.popularity);
-app.get("/bios/:museum", routes.bios);
-app.get("/artist_events", routes.artist_events);
-app.get("/artist_successors", routes.artist_successors);
-app.get("/event_artworks", routes.event_artworks);
+app.get('/search_artworks', routes.search_artworks);
+app.get('/topartists/:museum', routes.topartists);
+app.get('/learnartists/:minimum', routes.learnartists);
+app.get('/numkeywords/:keywords', routes.numkeywords);
+app.get('/popularity/:name', routes.popularity);
+app.get('/bios/:museum', routes.bios);
+app.get('/artist_events', routes.artist_events);
+app.get('/artist_successors', routes.artist_successors);
+app.get('/event_artworks', routes.event_artworks);
+app.get('/similar_artists', routes.similar_artists);
+
+app.get('/artwork/:id', routes.artwork_detail);
+app.get('/artwork/:id/similar', routes.artwork_similar);
+
+app.get('/artist/:id', routes.artist_detail);
+app.get('/artist/:id/artworks', routes.artist_artworks);
+app.get('/artist/:id/similar', routes.artist_similar);
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => {
