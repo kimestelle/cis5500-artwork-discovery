@@ -132,7 +132,7 @@ export default function ArtworksPage() {
 	// Call backend and load artworks
 	const searchArtworks = () => {
 		const qs = buildQueryString();
-		const url = `${config.server_url}/search_artworks?${qs}`;
+		const url = `http://${config.server_host}:${config.server_port}/search_artworks?${qs}`;
 
 		fetch(url)
 			.then((res) => res.json())

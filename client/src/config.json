@@ -1,3 +1,4 @@
 {
-  "server_url": "https://increasing-nonnah-estellekim-c1b00847.koyeb.app"
+  "server_host": "localhost",
+  "server_port": "8080"
 }
