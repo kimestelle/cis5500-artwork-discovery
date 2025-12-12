@@ -1,21 +1,16 @@
-const { Pool, types } = require('pg');
-const config = require('./config.json');
+const { Pool, types } = require("pg");
 
-// Override the default parsing for BIGINT (PostgreSQL type ID 20)
-types.setTypeParser(20, (val) => parseInt(val, 10)); //DO NOT DELETE THIS
+types.setTypeParser(20, (val) => parseInt(val, 10));
 
-// Create PostgreSQL connection using database credentials provided in config.json
-// Do not edit. If the connection fails, make sure to check that config.json is filled out correctly
 const connection = new Pool({
-	host: config.rds_host,
-	user: config.rds_user,
-	password: config.rds_password,
-	port: config.rds_port,
-	database: config.rds_db,
-	ssl: {
-		rejectUnauthorized: false,
-	},
+  host: process.env.PGHOST,
+  user: process.env.PGUSER,
+  password: process.env.PGPASSWORD,
+  port: Number(process.env.PGPORT || 5432),
+  database: process.env.PGDATABASE,
+  ssl: { rejectUnauthorized: false },
 });
+
 connection.connect((err) => err && console.log(err));
 
 /******************
