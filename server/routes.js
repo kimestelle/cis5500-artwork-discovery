@@ -1,5 +1,3 @@
-types.setTypeParser(20, (val) => parseInt(val, 10));
-
 const { Pool, types } = require("pg");
 
 types.setTypeParser(20, (val) => parseInt(val, 10));
