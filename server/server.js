@@ -26,6 +26,8 @@ app.get('/artist/:id', routes.artist_detail);
 app.get('/artist/:id/artworks', routes.artist_artworks);
 app.get('/artist/:id/similar', routes.artist_similar);
 
+app.get('/artist_history/:historical_event', routes.artist_during_history);
+
 app.listen(config.server_port, () => {
   console.log(`Server running at http://${config.server_host}:${config.server_port}/`)
 });

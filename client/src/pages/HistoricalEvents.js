@@ -12,6 +12,7 @@ import {
   Typography,
   Paper,
   Box,
+  TextField,
 } from '@mui/material';
 import backgroundImage from '../assets/background.jpg';
 
@@ -21,6 +22,10 @@ export default function HistoricalEvents() {
   const [artistEvents, setArtistEvents] = useState([]);
   const [successors, setSuccessors] = useState([]);
   const [eventArtworks, setEventArtworks] = useState([]);
+
+  const [historicalEventQuery, setHistoricalEventQuery] = useState('');
+  const [historyArtworks, setHistoryArtworks] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const [artistEventsLoading, setArtistEventsLoading] = useState(false);
   const [successorsLoading, setSuccessorsLoading] = useState(false);
@@ -36,14 +41,10 @@ export default function HistoricalEvents() {
 
     fetch(`${baseUrl}/artist_events`)
       .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((resJson) => {
-        setArtistEvents(Array.isArray(resJson) ? resJson : []);
-      })
+      .then((resJson) => setArtistEvents(Array.isArray(resJson) ? resJson : []))
       .catch((err) => {
         console.error('artist_events error:', err);
         setError('Failed to load artist–event connections.');
@@ -58,14 +59,10 @@ export default function HistoricalEvents() {
 
     fetch(`${baseUrl}/artist_successors`)
       .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((resJson) => {
-        setSuccessors(Array.isArray(resJson) ? resJson : []);
-      })
+      .then((resJson) => setSuccessors(Array.isArray(resJson) ? resJson : []))
       .catch((err) => {
         console.error('artist_successors error:', err);
         setError('Failed to load artistic successors.');
@@ -80,20 +77,43 @@ export default function HistoricalEvents() {
 
     fetch(`${baseUrl}/event_artworks`)
       .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((resJson) => {
-        setEventArtworks(Array.isArray(resJson) ? resJson : []);
-      })
+      .then((resJson) => setEventArtworks(Array.isArray(resJson) ? resJson : []))
       .catch((err) => {
         console.error('event_artworks error:', err);
         setError('Failed to load event–artwork overlaps.');
         setEventArtworks([]);
       })
       .finally(() => setEventArtworksLoading(false));
+  };
+
+  // NEW: load artist_history results
+  const handleLoadArtistHistory = () => {
+    setError(null);
+
+    const q = historicalEventQuery.trim();
+    if (!q) {
+      setError('Please enter a historical event title.');
+      setHistoryArtworks([]);
+      return;
+    }
+
+    setHistoryLoading(true);
+
+    fetch(`${baseUrl}/artist_history/${encodeURIComponent(q)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((resJson) => setHistoryArtworks(Array.isArray(resJson) ? resJson : []))
+      .catch((err) => {
+        console.error('artist_history error:', err);
+        setError('Failed to load artworks for that historical event.');
+        setHistoryArtworks([]);
+      })
+      .finally(() => setHistoryLoading(false));
   };
 
   return (
@@ -134,6 +154,7 @@ export default function HistoricalEvents() {
           </Typography>
         )}
 
+        {/* NEW SECTION: Artist history lookup */}
         <Paper
           sx={{
             p: 3,
@@ -142,28 +163,86 @@ export default function HistoricalEvents() {
             borderRadius: 2,
           }}
         >
-          <Stack
-            direction="row"
-            alignItems="center"
-            spacing={2}
-            sx={{ mb: 2 }}
-          >
+          <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
             <Typography
               variant="h5"
-              sx={{
-                fontFamily: 'Georgia, serif',
-                fontWeight: 'medium',
-              }}
+              sx={{ fontFamily: 'Georgia, serif', fontWeight: 'medium' }}
             >
+              Artworks by Artists Alive During a Historical Event
+            </Typography>
+
+            <TextField
+              size="small"
+              label="Historical Event Title"
+              value={historicalEventQuery}
+              onChange={(e) => setHistoricalEventQuery(e.target.value)}
+              sx={{ minWidth: 320 }}
+            />
+
+            <Button
+              variant="contained"
+              onClick={handleLoadArtistHistory}
+              sx={{ backgroundColor: 'black', '&:hover': { backgroundColor: '#333' } }}
+            >
+              Search
+            </Button>
+          </Stack>
+
+          {historyLoading && (
+            <Typography sx={{ fontStyle: 'italic' }}>
+              Loading artworks for that historical event...
+            </Typography>
+          )}
+
+          {!historyLoading && historyArtworks.length > 0 && (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Artist</TableCell>
+                    <TableCell>Artwork Title</TableCell>
+                    <TableCell>Medium</TableCell>
+                    <TableCell>Description</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {historyArtworks.map((row, idx) => (
+                    <TableRow key={`${row.artist ?? 'artist'}-${row.artworktitle ?? 'art'}-${idx}`}>
+                      <TableCell>{row.artist ?? 'N/A'}</TableCell>
+                      <TableCell>{row.artworktitle ?? 'N/A'}</TableCell>
+                      <TableCell>{row.artworkmedium ?? 'N/A'}</TableCell>
+                      <TableCell>{row.artworkdescription ?? ''}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+
+          {!historyLoading && historyArtworks.length === 0 && (
+            <Typography sx={{ fontStyle: 'italic' }}>
+              Enter an event title and click Search.
+            </Typography>
+          )}
+        </Paper>
+
+        {/* Existing: artist_events */}
+        <Paper
+          sx={{
+            p: 3,
+            mb: 4,
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: 2,
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
+            <Typography variant="h5" sx={{ fontFamily: 'Georgia, serif', fontWeight: 'medium' }}>
               Artists & Historical Events (Shared Keywords)
             </Typography>
             <Button
               variant="contained"
               onClick={handleLoadArtistEvents}
-              sx={{
-                backgroundColor: 'black',
-                '&:hover': { backgroundColor: '#333' },
-              }}
+              sx={{ backgroundColor: 'black', '&:hover': { backgroundColor: '#333' } }}
             >
               5 Random Artist–Event Connections
             </Button>
@@ -194,9 +273,7 @@ export default function HistoricalEvents() {
                 <TableBody>
                   {artistEvents.map((row, idx) => (
                     <TableRow
-                      key={`${row.artistid ?? 'artist'}-${
-                        row.eventid ?? 'event'
-                      }-${idx}`}
+                      key={`${row.artistid ?? 'artist'}-${row.eventid ?? 'event'}-${idx}`}
                     >
                       <TableCell>{row.artistid ?? 'N/A'}</TableCell>
                       <TableCell>{row.artistname ?? 'N/A'}</TableCell>
@@ -221,6 +298,7 @@ export default function HistoricalEvents() {
           )}
         </Paper>
 
+        {/* Existing: successors */}
         <Paper
           sx={{
             p: 3,
@@ -229,28 +307,14 @@ export default function HistoricalEvents() {
             borderRadius: 2,
           }}
         >
-          <Stack
-            direction="row"
-            alignItems="center"
-            spacing={2}
-            sx={{ mb: 2 }}
-          >
-            <Typography
-              variant="h5"
-              sx={{
-                fontFamily: 'Georgia, serif',
-                fontWeight: 'medium',
-              }}
-            >
+          <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
+            <Typography variant="h5" sx={{ fontFamily: 'Georgia, serif', fontWeight: 'medium' }}>
               Artistic Successors (Later Artists with Shared Keywords)
             </Typography>
             <Button
               variant="contained"
               onClick={handleLoadSuccessors}
-              sx={{
-                backgroundColor: 'black',
-                '&:hover': { backgroundColor: '#333' },
-              }}
+              sx={{ backgroundColor: 'black', '&:hover': { backgroundColor: '#333' } }}
             >
               5 Random Successors
             </Button>
@@ -272,24 +336,18 @@ export default function HistoricalEvents() {
                     <TableCell>Successor Name</TableCell>
                     <TableCell>Successor Nationality</TableCell>
                     <TableCell>Shared Keywords</TableCell>
-					<TableCell>Matching Keywords</TableCell>
+                    <TableCell>Matching Keywords</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {successors.map((row, idx) => (
-                    <TableRow
-                      key={`${
-                        row.successorartistid ?? 'successor'
-                      }-${idx}`}
-                    >
+                    <TableRow key={`${row.successorartistid ?? 'successor'}-${idx}`}>
                       <TableCell>{row.baseartistname ?? 'N/A'}</TableCell>
                       <TableCell>{row.successorartistid ?? 'N/A'}</TableCell>
                       <TableCell>{row.successorartistname ?? 'N/A'}</TableCell>
-                      <TableCell>
-                        {row.successornationality ?? 'N/A'}
-                      </TableCell>
+                      <TableCell>{row.successornationality ?? 'N/A'}</TableCell>
                       <TableCell>{row.sharedkeywords ?? 0}</TableCell>
-					  <TableCell>{row.matchingkeywords ?? ''}</TableCell>
+                      <TableCell>{row.matchingkeywords ?? ''}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -304,6 +362,7 @@ export default function HistoricalEvents() {
           )}
         </Paper>
 
+        {/* Existing: event_artworks */}
         <Paper
           sx={{
             p: 3,
@@ -311,28 +370,14 @@ export default function HistoricalEvents() {
             borderRadius: 2,
           }}
         >
-          <Stack
-            direction="row"
-            alignItems="center"
-            spacing={2}
-            sx={{ mb: 2 }}
-          >
-            <Typography
-              variant="h5"
-              sx={{
-                fontFamily: 'Georgia, serif',
-                fontWeight: 'medium',
-              }}
-            >
+          <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
+            <Typography variant="h5" sx={{ fontFamily: 'Georgia, serif', fontWeight: 'medium' }}>
               Events & Overlapping Artworks (Shared Keywords & Years)
             </Typography>
             <Button
               variant="contained"
               onClick={handleLoadEventArtworks}
-              sx={{
-                backgroundColor: 'black',
-                '&:hover': { backgroundColor: '#333' },
-              }}
+              sx={{ backgroundColor: 'black', '&:hover': { backgroundColor: '#333' } }}
             >
               5 Random Event–Artwork Overlaps
             </Button>
@@ -361,17 +406,13 @@ export default function HistoricalEvents() {
                 <TableBody>
                   {eventArtworks.map((row, idx) => (
                     <TableRow
-                      key={`${row.eventid ?? 'event'}-${
-                        row.artistid ?? 'artist'
-                      }-${idx}`}
+                      key={`${row.eventid ?? 'event'}-${row.artistid ?? 'artist'}-${idx}`}
                     >
                       <TableCell>{row.eventid ?? 'N/A'}</TableCell>
                       <TableCell>{row.eventtitle ?? 'N/A'}</TableCell>
                       <TableCell>{row.artistid ?? 'N/A'}</TableCell>
                       <TableCell>{row.artistname ?? 'N/A'}</TableCell>
-                      <TableCell>
-                        {row.numartworksoverlapping ?? 0}
-                      </TableCell>
+                      <TableCell>{row.numartworksoverlapping ?? 0}</TableCell>
                       <TableCell>{row.numsharedkeywords ?? 0}</TableCell>
                       <TableCell>{row.matchingkeywords ?? ''}</TableCell>
                     </TableRow>

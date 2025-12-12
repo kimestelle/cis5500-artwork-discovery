@@ -717,6 +717,46 @@ const similar_artists = async function (req, res) {
   );
 };
 
+// Route: GET /artist_history/:historical_event
+const artist_during_history = async function (req, res) {
+  const historical_event = (req.params.historical_event || '').trim();
+
+  if (!historical_event) {
+    return res.status(400).json({ error: 'historical_event is required' });
+  }
+
+  connection.query(
+    `
+    SELECT
+      aw.Title       AS ArtworkTitle,
+      aw.Medium      AS ArtworkMedium,
+      aw.Description AS ArtworkDescription,
+      ar.Name        AS Artist
+    FROM Artwork aw
+    JOIN Artist ar ON aw.ArtistId = ar.ArtistId
+    WHERE EXISTS (
+      SELECT 1
+      FROM HistoricalEvents h
+      WHERE h.Title = $1
+        AND ar.BirthYear <= EXTRACT(YEAR FROM h.EndDate)
+        AND (
+          ar.DeathYear IS NULL
+          OR ar.DeathYear >= EXTRACT(YEAR FROM h.StartDate)
+        )
+    )
+    ORDER BY ar.Name ASC, aw.Title ASC
+	LIMIT 5;
+    `,
+    [historical_event],
+    (err, data) => {
+      if (err) {
+        console.log('artist_during_history error:', err);
+        return res.json([]);
+      }
+      return res.json(data.rows);
+    }
+  );
+};
 
 
 module.exports = {
@@ -735,4 +775,5 @@ module.exports = {
 	artwork_similar,
 	artist_similar,
 	artist_artworks,
+	artist_during_history,
 };
