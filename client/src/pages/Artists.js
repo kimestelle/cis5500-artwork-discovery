@@ -22,7 +22,7 @@ const config = require('../config.json');
 
 export default function Artists() {
 	const [answers, setAnswers] = useState({});
-	const [results, setResults] = useState({});
+	const [, setResults] = useState({});
 	const [openModal, setOpenModal] = useState(false);
 	const [modalContent, setModalContent] = useState('');
 
