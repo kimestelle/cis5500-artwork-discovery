@@ -1,7 +1,7 @@
 # cis5500-artwork-discovery
 Art enthusiasts frequently struggle when trying to explore artworks and the historical or cultural narratives surrounding them, since information is often fragmented over the internet. Although major museums like MoMA and The Met offer extensive online collections, their individual systems make cross-museum discovery difficult, especially for users who want to locate where certain artworks are displayed, learn about an artist’s background, or understand the historical forces influencing artistic movements. ArtAtlas aggregates disparate art-related datasets into a single, integrated platform that allows users to explore artworks, artists, museums, and world events in an intuitive and interactive way.
 The goals of our project are twofold: first, to enable seamless discovery across museums to connect users with artworks based on museum, artist, medium, artist nationality, and time of creation; and second, to enrich the user’s understanding of the art and artists they search for with deeper context, including artist biographies, similar artists or artworks based on shared keywords or time of creation, and historical events relevant to the artwork’s creation.
-## running instructions
+## running instructions (PLEASE NAVIGATE TO THE "LOCAL" BRANCH IF ACCESSING FROM GITHUB!)
 ```cd client```
 ```npm i```
 ```npm start```
