@@ -28,7 +28,7 @@ export default function SimilarArtistsPage() {
     params.append('minKeywords', String(minKeywords));
     params.append('limit', String(limit));
 
-    const url = `${config.server_url}/similar_artists?${params.toString()}`;
+    const url = `http://${config.server_host}:${config.server_port}/similar_artists?${params.toString()}`;
 
     fetch(url)
       .then((res) => {
